@@ -1,0 +1,6 @@
+import asyncio
+from base import run_test
+
+if __name__ == "__main__":
+    task = "Go to https://www.amazon.com. Search for 'wireless mouse', apply the '4 Stars & Up' customer review filter on the left sidebar, and extract the title and price of the first non-sponsored result."
+    asyncio.run(run_test(task))
