@@ -1400,7 +1400,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
                     with open(workflow_path, 'w', encoding='utf-8') as f:
                         f.write(workflow_json)
                     self.logger.info(f'📁 Workflow macro successfully recorded to {workflow_path}')
-                    await self._emit_mock_frontend_event({'event_type': 'workflow_macro_recorded', 'workflow_id': workflow_template.workflow_id, 'target_url': workflow_template.target_url, 'step_count': len(workflow_template.steps)})
+                    self._emit_mock_frontend_event({'event_type': 'workflow_macro_recorded', 'workflow_id': workflow_template.workflow_id, 'target_url': workflow_template.target_url, 'step_count': len(workflow_template.steps)})
                 except Exception as macro_err:
                     self.logger.warning(f'⚠️ Failed to compile workflow macro: {macro_err}')
             if self.history._output_model_schema is None and self.output_model_schema is not None:

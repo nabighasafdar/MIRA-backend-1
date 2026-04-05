@@ -7,7 +7,7 @@ from bubus import EventBus
 
 # Adjust imports according to the new MIRA structure
 import sys
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from system.agent.service import Agent
 from system.browser.session import BrowserSession
