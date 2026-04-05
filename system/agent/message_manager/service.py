@@ -231,7 +231,7 @@ class MessageManager:
 
     @observe_debug(ignore_input=True, ignore_output=True, name='create_state_messages')
     @time_execution_sync('--create_state_messages')
-    def create_state_messages(self, browser_state_summary: BrowserStateSummary, model_output: AgentOutput | None=None, result: list[ActionResult] | None=None, step_info: AgentStepInfo | None=None, use_vision: bool | Literal['auto']=True, page_filtered_actions: str | None=None, sensitive_data=None, available_file_paths: list[str] | None=None, unavailable_skills_info: str | None=None, plan_description: str | None=None, skip_state_update: bool=False) -> None:
+    def create_state_messages(self, browser_state_summary: BrowserStateSummary, model_output: AgentOutput | None=None, result: list[ActionResult] | None=None, step_info: AgentStepInfo | None=None, use_vision: bool | Literal['auto']=True, page_filtered_actions: str | None=None, sensitive_data=None, available_file_paths: list[str] | None=None, unavailable_skills_info: str | None=None, plan_description: str | None=None, skip_state_update: bool=False, user_wallet: str | None=None) -> None:
         if not skip_state_update:
             self.prepare_step_state(browser_state_summary=browser_state_summary, model_output=model_output, result=result, step_info=step_info, sensitive_data=sensitive_data)
         screenshots = []
@@ -251,7 +251,7 @@ class MessageManager:
             screenshots.append(browser_state_summary.screenshot)
         effective_use_vision = len(screenshots) > 0
         assert browser_state_summary
-        state_message = AgentMessagePrompt(browser_state_summary=browser_state_summary, file_system=self.file_system, agent_history_description=self.agent_history_description, read_state_description=self.state.read_state_description, task=self.task, include_attributes=self.include_attributes, step_info=step_info, page_filtered_actions=page_filtered_actions, max_clickable_elements_length=self.max_clickable_elements_length, sensitive_data=self.sensitive_data_description, available_file_paths=available_file_paths, screenshots=screenshots, vision_detail_level=self.vision_detail_level, include_recent_events=self.include_recent_events, sample_images=self.sample_images, read_state_images=self.state.read_state_images, llm_screenshot_size=self.llm_screenshot_size, unavailable_skills_info=unavailable_skills_info, plan_description=plan_description).get_user_message(effective_use_vision)
+        state_message = AgentMessagePrompt(browser_state_summary=browser_state_summary, file_system=self.file_system, agent_history_description=self.agent_history_description, read_state_description=self.state.read_state_description, task=self.task, include_attributes=self.include_attributes, step_info=step_info, page_filtered_actions=page_filtered_actions, max_clickable_elements_length=self.max_clickable_elements_length, sensitive_data=self.sensitive_data_description, available_file_paths=available_file_paths, screenshots=screenshots, vision_detail_level=self.vision_detail_level, include_recent_events=self.include_recent_events, sample_images=self.sample_images, read_state_images=self.state.read_state_images, llm_screenshot_size=self.llm_screenshot_size, unavailable_skills_info=unavailable_skills_info, plan_description=plan_description, user_wallet=user_wallet).get_user_message(effective_use_vision)
         self.last_state_message_text = state_message.text
         self._set_message_with_type(state_message, 'state')
 
