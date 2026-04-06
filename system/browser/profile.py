@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 from urllib.parse import urlparse
 from pydantic import AfterValidator, AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
-from system.browser.cloud.views import CloudBrowserParams
+
 from system.config import CONFIG
 from system.utils import _log_pretty_path, logger
 
@@ -198,12 +198,7 @@ class BrowserProfile(BrowserConnectArgs, BrowserLaunchPersistentContextArgs, Bro
     model_config = ConfigDict(extra='ignore', validate_assignment=True, revalidate_instances='always', from_attributes=True, validate_by_name=True, validate_by_alias=True)
     cdp_url: str | None = Field(default=None, description='CDP URL for connecting to existing browser instance')
     is_local: bool = Field(default=False, description='Whether this is a local browser instance')
-    use_cloud: bool = Field(default=False, description='Use browser-use cloud browser service instead of local browser')
 
-    @property
-    def cloud_browser(self) -> bool:
-        return self.use_cloud
-    cloud_browser_params: CloudBrowserParams | None = Field(default=None, description='Parameters for creating a cloud browser instance')
     disable_security: bool = Field(default=False, description='Disable browser security features.')
     deterministic_rendering: bool = Field(default=False, description='Enable deterministic rendering flags.')
     allowed_domains: list[str] | set[str] | None = Field(default=None, description='List of allowed domains for navigation e.g. ["*.google.com", "https://example.com", "chrome-extension://*"]. Lists with 100+ items are auto-optimized to sets (no pattern matching).')

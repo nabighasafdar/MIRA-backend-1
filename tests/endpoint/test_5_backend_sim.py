@@ -5,7 +5,6 @@ from pathlib import Path
 from pydantic import BaseModel
 from bubus import EventBus
 
-# Adjust imports according to the new MIRA structure
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 

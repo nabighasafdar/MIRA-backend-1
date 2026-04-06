@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 if TYPE_CHECKING:
     from system.skills.views import Skill
 from dotenv import load_dotenv
-from system.agent.cloud_events import CreateAgentOutputFileEvent, CreateAgentSessionEvent, CreateAgentStepEvent, CreateAgentTaskEvent, UpdateAgentTaskEvent
+
 from system.agent.message_manager.utils import save_conversation
 from system.llm.base import BaseChatModel
 from system.llm.exceptions import ModelProviderError, ModelRateLimitError
@@ -70,7 +70,7 @@ AgentHookFunc = Callable[['Agent'], Awaitable[None]]
 class Agent(Generic[Context, AgentStructuredOutput]):
 
     @time_execution_sync('--init')
-    def __init__(self, task: str, llm: BaseChatModel | None=None, browser_profile: BrowserProfile | None=None, browser_session: BrowserSession | None=None, browser: Browser | None=None, tools: Tools[Context] | None=None, controller: Tools[Context] | None=None, skill_ids: list[str | Literal['*']] | None=None, skills: list[str | Literal['*']] | None=None, skill_service: Any | None=None, sensitive_data: dict[str, str | dict[str, str]] | None=None, initial_actions: list[dict[str, dict[str, Any]]] | None=None, register_new_step_callback: Callable[['BrowserStateSummary', 'AgentOutput', int], None] | Callable[['BrowserStateSummary', 'AgentOutput', int], Awaitable[None]] | None=None, register_done_callback: Callable[['AgentHistoryList'], Awaitable[None]] | Callable[['AgentHistoryList'], None] | None=None, register_external_agent_status_raise_error_callback: Callable[[], Awaitable[bool]] | None=None, register_should_stop_callback: Callable[[], Awaitable[bool]] | None=None, output_model_schema: type[AgentStructuredOutput] | None=None, extraction_schema: dict | None=None, use_vision: bool | Literal['auto']=True, save_conversation_path: str | Path | None=None, save_conversation_path_encoding: str | None='utf-8', max_failures: int=5, override_system_message: str | None=None, extend_system_message: str | None=None, generate_gif: bool | str=False, available_file_paths: list[str] | None=None, include_attributes: list[str] | None=None, max_actions_per_step: int=5, use_thinking: bool=True, flash_mode: bool=False, max_history_items: int | None=None, page_extraction_llm: BaseChatModel | None=None, fallback_llm: BaseChatModel | None=None, use_judge: bool=True, ground_truth: str | None=None, judge_llm: BaseChatModel | None=None, injected_agent_state: AgentState | None=None, source: str | None=None, file_system_path: str | None=None, task_id: str | None=None, calculate_cost: bool=False, display_files_in_done_text: bool=True, include_tool_call_examples: bool=False, vision_detail_level: Literal['auto', 'low', 'high']='auto', llm_timeout: int | None=None, step_timeout: int=180, directly_open_url: bool=True, include_recent_events: bool=False, sample_images: list[ContentPartTextParam | ContentPartImageParam] | None=None, final_response_after_failure: bool=True, enable_planning: bool=True, planning_replan_on_stall: int=3, planning_exploration_limit: int=5, loop_detection_window: int=20, loop_detection_enabled: bool=True, llm_screenshot_size: tuple[int, int] | None=None, message_compaction: MessageCompactionSettings | bool | None=True, max_clickable_elements_length: int=40000, _url_shortening_limit: int=25, workflow_template: WorkflowTemplate | None=None, info_wallet: Any | None=None, **kwargs):
+    def __init__(self, task: str, llm: BaseChatModel | None=None, browser_profile: BrowserProfile | None=None, browser_session: BrowserSession | None=None, browser: Browser | None=None, tools: Tools[Context] | None=None, controller: Tools[Context] | None=None, skill_ids: list[str | Literal['*']] | None=None, skills: list[str | Literal['*']] | None=None, skill_service: Any | None=None, sensitive_data: dict[str, str | dict[str, str]] | None=None, initial_actions: list[dict[str, dict[str, Any]]] | None=None, register_new_step_callback: Callable[['BrowserStateSummary', 'AgentOutput', int], None] | Callable[['BrowserStateSummary', 'AgentOutput', int], Awaitable[None]] | None=None, register_done_callback: Callable[['AgentHistoryList'], Awaitable[None]] | Callable[['AgentHistoryList'], None] | None=None, register_external_agent_status_raise_error_callback: Callable[[], Awaitable[bool]] | None=None, register_should_stop_callback: Callable[[], Awaitable[bool]] | None=None, output_model_schema: type[AgentStructuredOutput] | None=None, extraction_schema: dict | None=None, use_vision: bool | Literal['auto']=True, save_conversation_path: str | Path | None=None, save_conversation_path_encoding: str | None='utf-8', max_failures: int=5, override_system_message: str | None=None, extend_system_message: str | None=None, available_file_paths: list[str] | None=None, include_attributes: list[str] | None=None, max_actions_per_step: int=5, use_thinking: bool=True, flash_mode: bool=False, max_history_items: int | None=None, page_extraction_llm: BaseChatModel | None=None, fallback_llm: BaseChatModel | None=None, use_judge: bool=True, ground_truth: str | None=None, judge_llm: BaseChatModel | None=None, injected_agent_state: AgentState | None=None, source: str | None=None, file_system_path: str | None=None, task_id: str | None=None, calculate_cost: bool=False, display_files_in_done_text: bool=True, include_tool_call_examples: bool=False, vision_detail_level: Literal['auto', 'low', 'high']='auto', llm_timeout: int | None=None, step_timeout: int=180, directly_open_url: bool=True, include_recent_events: bool=False, sample_images: list[ContentPartTextParam | ContentPartImageParam] | None=None, final_response_after_failure: bool=True, enable_planning: bool=True, planning_replan_on_stall: int=3, planning_exploration_limit: int=5, loop_detection_window: int=20, loop_detection_enabled: bool=True, llm_screenshot_size: tuple[int, int] | None=None, message_compaction: MessageCompactionSettings | bool | None=True, max_clickable_elements_length: int=40000, _url_shortening_limit: int=25, workflow_template: WorkflowTemplate | None=None, info_wallet: Any | None=None, **kwargs):
         if llm_screenshot_size is not None:
             if not isinstance(llm_screenshot_size, tuple) or len(llm_screenshot_size) != 2:
                 raise ValueError('llm_screenshot_size must be a tuple of (width, height)')
@@ -86,17 +86,9 @@ class Agent(Generic[Context, AgentStructuredOutput]):
                 from system.llm.models import get_llm_by_name
                 llm = get_llm_by_name(default_llm_name)
             else:
-                from system import ChatBrowserUse
-                llm = ChatBrowserUse()
-        if llm.provider == 'browser-use':
-            flash_mode = True
+                raise ValueError('No LLM configured. Set DEFAULT_LLM in your .env or pass llm= explicitly.')
         if flash_mode:
             enable_planning = False
-        if llm_screenshot_size is None:
-            model_name = getattr(llm, 'model', '')
-            if isinstance(model_name, str) and model_name.startswith('claude-sonnet'):
-                llm_screenshot_size = (1400, 850)
-                logger.info('🖼️  Auto-configured LLM screenshot size for Claude Sonnet: 1400x850')
         if page_extraction_llm is None:
             page_extraction_llm = llm
         if judge_llm is None:
@@ -111,10 +103,6 @@ class Agent(Generic[Context, AgentStructuredOutput]):
                     if '3-pro' in model_name:
                         return 90
                     return 75
-                elif 'groq' in model_name:
-                    return 30
-                elif 'o3' in model_name or 'claude' in model_name or 'sonnet' in model_name or ('deepseek' in model_name):
-                    return 90
                 else:
                     return 75
             llm_timeout = _get_model_timeout(llm)
@@ -144,7 +132,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
         if use_vision != 'auto':
             self.tools.exclude_action('screenshot')
         model_name = getattr(llm, 'model', '').lower()
-        supports_coordinate_clicking = any((pattern in model_name for pattern in ['claude-sonnet-4', 'claude-opus-4', 'gemini-3-pro', 'browser-use/']))
+        supports_coordinate_clicking = 'gemini-3-pro' in model_name
         if supports_coordinate_clicking:
             self.tools.set_coordinate_clicking(True)
         if skills and skill_ids:
@@ -183,7 +171,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
         self.info_wallet = info_wallet
         if isinstance(message_compaction, bool):
             message_compaction = MessageCompactionSettings(enabled=message_compaction)
-        self.settings = AgentSettings(use_vision=use_vision, vision_detail_level=vision_detail_level, save_conversation_path=save_conversation_path, save_conversation_path_encoding=save_conversation_path_encoding, max_failures=max_failures, override_system_message=override_system_message, extend_system_message=extend_system_message, generate_gif=generate_gif, include_attributes=include_attributes, max_actions_per_step=max_actions_per_step, use_thinking=use_thinking, flash_mode=flash_mode, max_history_items=max_history_items, page_extraction_llm=page_extraction_llm, calculate_cost=calculate_cost, include_tool_call_examples=include_tool_call_examples, llm_timeout=llm_timeout, step_timeout=step_timeout, final_response_after_failure=final_response_after_failure, use_judge=use_judge, ground_truth=ground_truth, enable_planning=enable_planning, planning_replan_on_stall=planning_replan_on_stall, planning_exploration_limit=planning_exploration_limit, loop_detection_window=loop_detection_window, loop_detection_enabled=loop_detection_enabled, message_compaction=message_compaction, max_clickable_elements_length=max_clickable_elements_length)
+        self.settings = AgentSettings(use_vision=use_vision, vision_detail_level=vision_detail_level, save_conversation_path=save_conversation_path, save_conversation_path_encoding=save_conversation_path_encoding, max_failures=max_failures, override_system_message=override_system_message, extend_system_message=extend_system_message, include_attributes=include_attributes, max_actions_per_step=max_actions_per_step, use_thinking=use_thinking, flash_mode=flash_mode, max_history_items=max_history_items, page_extraction_llm=page_extraction_llm, calculate_cost=calculate_cost, include_tool_call_examples=include_tool_call_examples, llm_timeout=llm_timeout, step_timeout=step_timeout, final_response_after_failure=final_response_after_failure, use_judge=use_judge, ground_truth=ground_truth, enable_planning=enable_planning, planning_replan_on_stall=planning_replan_on_stall, planning_exploration_limit=planning_exploration_limit, loop_detection_window=loop_detection_window, loop_detection_enabled=loop_detection_enabled, message_compaction=message_compaction, max_clickable_elements_length=max_clickable_elements_length)
         self.token_cost_service = TokenCost(include_cost=calculate_cost)
         self.token_cost_service.register_llm(llm)
         self.token_cost_service.register_llm(page_extraction_llm)
@@ -211,18 +199,9 @@ class Agent(Generic[Context, AgentStructuredOutput]):
         self.initial_url = initial_url
         self.initial_actions = self._convert_initial_actions(initial_actions) if initial_actions else None
         self._verify_and_setup_llm()
-        if 'deepseek' in self.llm.model.lower():
-            self.logger.warning('⚠️ DeepSeek models do not support use_vision=True yet. Setting use_vision=False for now...')
-            self.settings.use_vision = False
-        model_lower = self.llm.model.lower()
-        if 'grok-3' in model_lower or 'grok-code' in model_lower:
-            self.logger.warning('⚠️ This XAI model does not support use_vision=True yet. Setting use_vision=False for now...')
-            self.settings.use_vision = False
         logger.debug(f"{(' +vision' if self.settings.use_vision else '')} extraction_model={(self.settings.page_extraction_llm.model if self.settings.page_extraction_llm else 'Unknown')}{(' +file_system' if self.file_system else '')}")
         self.browser_session.llm_screenshot_size = llm_screenshot_size
-        is_anthropic = False
-        is_system_model = 'browser-use/' in self.llm.model.lower()
-        self._message_manager = MessageManager(task=self.task, system_message=SystemPrompt(max_actions_per_step=self.settings.max_actions_per_step, override_system_message=override_system_message, extend_system_message=extend_system_message, use_thinking=self.settings.use_thinking, flash_mode=self.settings.flash_mode, is_anthropic=is_anthropic, is_system_model=is_system_model, model_name=self.llm.model).get_system_message(), file_system=self.file_system, state=self.state.message_manager_state, use_thinking=self.settings.use_thinking, include_attributes=self.settings.include_attributes, sensitive_data=sensitive_data, max_history_items=self.settings.max_history_items, vision_detail_level=self.settings.vision_detail_level, include_tool_call_examples=self.settings.include_tool_call_examples, include_recent_events=self.include_recent_events, sample_images=self.sample_images, llm_screenshot_size=llm_screenshot_size, max_clickable_elements_length=self.settings.max_clickable_elements_length)
+        self._message_manager = MessageManager(task=self.task, system_message=SystemPrompt(max_actions_per_step=self.settings.max_actions_per_step, override_system_message=override_system_message, extend_system_message=extend_system_message, use_thinking=self.settings.use_thinking, flash_mode=self.settings.flash_mode, is_system_model=False, model_name=self.llm.model).get_system_message(), file_system=self.file_system, state=self.state.message_manager_state, use_thinking=self.settings.use_thinking, include_attributes=self.settings.include_attributes, sensitive_data=sensitive_data, max_history_items=self.settings.max_history_items, vision_detail_level=self.settings.vision_detail_level, include_tool_call_examples=self.settings.include_tool_call_examples, include_recent_events=self.include_recent_events, sample_images=self.sample_images, llm_screenshot_size=llm_screenshot_size, max_clickable_elements_length=self.settings.max_clickable_elements_length)
         if self.sensitive_data:
             has_domain_specific_credentials = any((isinstance(v, dict) for v in self.sensitive_data.values()))
             if not self.browser_profile.allowed_domains:
@@ -723,14 +702,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
         if summary_message:
             await self._demo_mode_log(summary_message, 'info', {'step': self.state.n_steps})
         self.save_file_system_state()
-        if browser_state_summary and self.state.last_model_output:
-            actions_data = []
-            if self.state.last_model_output.action:
-                for action in self.state.last_model_output.action:
-                    action_dict = action.model_dump() if hasattr(action, 'model_dump') else {}
-                    actions_data.append(action_dict)
-            step_event = CreateAgentStepEvent.from_agent_step(self, self.state.last_model_output, self.state.last_result, actions_data, browser_state_summary)
-            self.eventbus.dispatch(step_event)
+
         try:
             current_usage = await self.token_cost_service.get_usage_summary()
             self._emit_mock_frontend_event({'event_type': 'telemetry_billing', 'model': self.llm.model if hasattr(self.llm, 'model') else 'unknown', 'tokens': {'prompt': current_usage.total_prompt_tokens, 'completion': current_usage.total_completion_tokens, 'cached': current_usage.total_prompt_cached_tokens}, 'step': self.state.n_steps, 'status': 'success'})
@@ -1205,11 +1177,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
             final_result_str = str(final_result).lower() if final_result else ''
             captcha_keywords = ['captcha', 'cloudflare', 'recaptcha', 'challenge', 'bot detection', 'access denied']
             has_captcha_issue = any((keyword in final_result_str for keyword in captcha_keywords))
-            if has_captcha_issue:
-                task_preview = self.task[:10] if len(self.task) > 10 else self.task
-                self.logger.info('')
-                self.logger.info('Failed because of CAPTCHA? For better browser stealth, try:')
-                self.logger.info(f'   agent = Agent(task="{task_preview}...", browser=Browser(use_cloud=True))')
+
             self.logger.info('')
             self.logger.info('Did the Agent not work as expected? Let us fix this!')
             self.logger.info('   Open a short issue on GitHub: https://github.com/browser-use/browser-use/issues')
@@ -1343,11 +1311,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
             self._session_start_time = time.time()
             self._task_start_time = self._session_start_time
             if not self.state.session_initialized:
-                self.logger.debug('📡 Dispatching CreateAgentSessionEvent...')
-                self.eventbus.dispatch(CreateAgentSessionEvent.from_agent(self))
                 self.state.session_initialized = True
-            self.logger.debug('📡 Dispatching CreateAgentTaskEvent...')
-            self.eventbus.dispatch(CreateAgentTaskEvent.from_agent(self))
             self._log_first_step_startup()
             await self.browser_session.start()
             if self._demo_mode_enabled:
@@ -1429,16 +1393,6 @@ class Agent(Generic[Context, AgentStructuredOutput]):
                     self.logger.error(f'Failed to log telemetry event: {log_e}', exc_info=True)
             else:
                 self.logger.debug('Telemetry for force exit (SIGINT) was logged by custom exit callback.')
-            self.eventbus.dispatch(UpdateAgentTaskEvent.from_agent(self))
-            if self.settings.generate_gif:
-                output_path: str = 'agent_history.gif'
-                if isinstance(self.settings.generate_gif, str):
-                    output_path = self.settings.generate_gif
-                from system.agent.gif import create_history_gif
-                create_history_gif(task=self.task, history=self.history, output_path=output_path)
-                if Path(output_path).exists():
-                    output_event = await CreateAgentOutputFileEvent.from_agent_and_file(self, output_path)
-                    self.eventbus.dispatch(output_event)
             self._log_final_outcome_messages()
             await self.eventbus.stop(clear=True, timeout=_get_timeout('TIMEOUT_AgentEventBusStop', 3.0))
             await self.close()
@@ -2113,9 +2067,6 @@ class Agent(Generic[Context, AgentStructuredOutput]):
         else:
             self.DoneAgentOutput = AgentOutput.type_with_custom_actions_no_thinking(self.DoneActionModel)
 
-    async def authenticate_cloud_sync(self, show_instructions: bool=True) -> bool:
-        self.logger.warning('Cloud sync has been removed and is no longer available')
-        return False
 
     def run_sync(self, max_steps: int=500, on_step_start: AgentHookFunc | None=None, on_step_end: AgentHookFunc | None=None) -> AgentHistoryList[AgentStructuredOutput]:
         import asyncio

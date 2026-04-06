@@ -19,7 +19,6 @@ URL_PATTERN = re.compile('https?://[^\\s<>"\\\']+|www\\.[^\\s<>"\\\']+|[^\\s<>"\
 logger = logging.getLogger(__name__)
 _IMPORT_NOT_FOUND: type = type('_ImportNotFound', (), {})
 _openai_bad_request_error: type | None = None
-_groq_bad_request_error: type | None = None
 
 def _get_openai_bad_request_error() -> type | None:
     global _openai_bad_request_error
@@ -30,16 +29,6 @@ def _get_openai_bad_request_error() -> type | None:
         except ImportError:
             _openai_bad_request_error = _IMPORT_NOT_FOUND
     return _openai_bad_request_error if _openai_bad_request_error is not _IMPORT_NOT_FOUND else None
-
-def _get_groq_bad_request_error() -> type | None:
-    global _groq_bad_request_error
-    if _groq_bad_request_error is None:
-        try:
-            from groq import BadRequestError
-            _groq_bad_request_error = BadRequestError
-        except ImportError:
-            _groq_bad_request_error = _IMPORT_NOT_FOUND
-    return _groq_bad_request_error if _groq_bad_request_error is not _IMPORT_NOT_FOUND else None
 _exiting = False
 R = TypeVar('R')
 T = TypeVar('T')

@@ -1,6 +1,6 @@
-2026/04/05-18:06:13.009 3ba4 Reusing MANIFEST C:\Users\maham\fyp_2\backend\MIRA_backend\MIRA\tests\profile\mira_dedicated_profile\Default\IndexedDB\https_mail.google.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/04/05-18:06:13.009 3ba4 Recovering log #3
-2026/04/05-18:06:13.010 3ba4 Reusing old log C:\Users\maham\fyp_2\backend\MIRA_backend\MIRA\tests\profile\mira_dedicated_profile\Default\IndexedDB\https_mail.google.com_0.indexeddb.leveldb/000003.log 
-2026/04/05-18:06:29.322 3ba4 Level-0 table #5: started
-2026/04/05-18:06:29.342 3ba4 Level-0 table #5: 3134982 bytes OK
-2026/04/05-18:06:29.345 3ba4 Delete type=0 #3
+2026/04/06-09:45:02.884 42f8 Reusing MANIFEST C:\Users\maham\fyp_2\backend\MIRA_backend\MIRA\tests\profile\mira_dedicated_profile\Default\IndexedDB\https_mail.google.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/04/06-09:45:02.885 42f8 Recovering log #3
+2026/04/06-09:45:02.892 42f8 Reusing old log C:\Users\maham\fyp_2\backend\MIRA_backend\MIRA\tests\profile\mira_dedicated_profile\Default\IndexedDB\https_mail.google.com_0.indexeddb.leveldb/000003.log 
+2026/04/06-09:45:26.850 42f8 Level-0 table #5: started
+2026/04/06-09:45:26.900 42f8 Level-0 table #5: 3061005 bytes OK
+2026/04/06-09:45:26.906 42f8 Delete type=0 #3

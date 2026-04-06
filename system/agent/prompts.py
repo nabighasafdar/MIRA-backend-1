@@ -10,24 +10,15 @@ if TYPE_CHECKING:
     from system.browser.views import BrowserStateSummary
     from system.filesystem.file_system import FileSystem
 
-def _is_anthropic_4_5_model(model_name: str | None) -> bool:
-    if not model_name:
-        return False
-    model_lower = model_name.lower()
-    is_opus_4_5 = 'opus' in model_lower and ('4.5' in model_lower or '4-5' in model_lower)
-    is_haiku_4_5 = 'haiku' in model_lower and ('4.5' in model_lower or '4-5' in model_lower)
-    return is_opus_4_5 or is_haiku_4_5
 
 class SystemPrompt:
 
-    def __init__(self, max_actions_per_step: int=3, override_system_message: str | None=None, extend_system_message: str | None=None, use_thinking: bool=True, flash_mode: bool=False, is_anthropic: bool=False, is_system_model: bool=False, model_name: str | None=None):
+    def __init__(self, max_actions_per_step: int=3, override_system_message: str | None=None, extend_system_message: str | None=None, use_thinking: bool=True, flash_mode: bool=False, is_system_model: bool=False, model_name: str | None=None):
         self.max_actions_per_step = max_actions_per_step
         self.use_thinking = use_thinking
         self.flash_mode = flash_mode
-        self.is_anthropic = is_anthropic
         self.is_system_model = is_system_model
         self.model_name = model_name
-        self.is_anthropic_4_5 = _is_anthropic_4_5_model(model_name)
         prompt = ''
         if override_system_message is not None:
             prompt = override_system_message
@@ -40,18 +31,7 @@ class SystemPrompt:
 
     def _load_prompt_template(self) -> None:
         try:
-            if self.is_system_model:
-                if self.flash_mode:
-                    template_filename = 'system_prompt_system_flash.md'
-                elif self.use_thinking:
-                    template_filename = 'system_prompt_system.md'
-                else:
-                    template_filename = 'system_prompt_system_no_thinking.md'
-            elif self.is_anthropic_4_5 and self.flash_mode:
-                template_filename = 'system_prompt_anthropic_flash.md'
-            elif self.flash_mode and self.is_anthropic:
-                template_filename = 'system_prompt_flash_anthropic.md'
-            elif self.flash_mode:
+            if self.flash_mode:
                 template_filename = 'system_prompt_flash.md'
             elif self.use_thinking:
                 template_filename = 'system_prompt.md'
@@ -207,7 +187,15 @@ class AgentMessagePrompt:
         if self.plan_description:
             agent_state += f'<plan>\n{self.plan_description}\n</plan>\n'
         if self.user_wallet:
-            agent_state += f'<user_wallet>\nThis is previously saved data for the user. Use it aggressively if you encounter a form asking for this information:\n{self.user_wallet}\n</user_wallet>\n'
+            agent_state += (
+                f'<user_wallet>\n'
+                f'This is previously saved personal data for the user:\n{self.user_wallet}\n\n'
+                f'Rules for the wallet:\n'
+                f'1. USE: If a form or page asks for information already in the wallet, fill it in automatically without asking the user.\n'
+                f'2. SAVE: If the user provides new personal information (name, city, address, preference, phone, email, etc.) — even casually — call save_to_wallet immediately before continuing the task. Use a clear key like "city", "full_name", "preferred_language".\n'
+                f'3. UPDATE: If the user provides information that contradicts what is in the wallet, call save_to_wallet to overwrite the old value.\n'
+                f'</user_wallet>\n'
+            )
         if self.sensitive_data:
             agent_state += f'<sensitive_data>{self.sensitive_data}</sensitive_data>\n'
         agent_state += f'<step_info>{step_info_description}</step_info>\n'

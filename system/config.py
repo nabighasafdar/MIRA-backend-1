@@ -8,7 +8,6 @@ class Config(BaseSettings):
     BROWSER_USE_LOGGING_LEVEL: str = 'info'
     ANONYMIZED_TELEMETRY: bool = False
     OPENAI_API_KEY: str | None = None
-    ANTHROPIC_API_KEY: str | None = None
     GOOGLE_API_KEY: str | None = None
     SKIP_LLM_API_KEY_VERIFICATION: bool = False
     BROWSER_USE_VERSION_CHECK: bool = True

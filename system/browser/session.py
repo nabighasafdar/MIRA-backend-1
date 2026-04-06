@@ -14,8 +14,7 @@ from cdp_use.cdp.network import Cookie
 from cdp_use.cdp.target import SessionID, TargetID
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from uuid_extensions import uuid7str
-from system.browser.cloud.cloud import CloudBrowserAuthError, CloudBrowserClient, CloudBrowserError
-from system.browser.cloud.views import CloudBrowserParams, CreateBrowserRequest, ProxyCountryCode
+
 from system.browser.events import AgentFocusChangedEvent, BrowserConnectedEvent, BrowserErrorEvent, BrowserLaunchEvent, BrowserLaunchResult, BrowserReconnectedEvent, BrowserReconnectingEvent, BrowserStartEvent, BrowserStateRequestEvent, BrowserStopEvent, BrowserStoppedEvent, CloseTabEvent, FileDownloadedEvent, NavigateToUrlEvent, NavigationCompleteEvent, NavigationStartedEvent, SwitchTabEvent, TabClosedEvent, TabCreatedEvent
 from system.browser.profile import BrowserProfile, ProxySettings
 from system.browser.views import BrowserStateSummary, TabInfo
@@ -48,31 +47,17 @@ class CDPSession(BaseModel):
 class BrowserSession(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True, extra='forbid', revalidate_instances='never')
 
-    @overload
-    def __init__(self, *, cloud_profile_id: UUID | str | None=None, cloud_proxy_country_code: ProxyCountryCode | None=None, cloud_timeout: int | None=None, profile_id: UUID | str | None=None, proxy_country_code: ProxyCountryCode | None=None, timeout: int | None=None, use_cloud: bool | None=None, cloud_browser: bool | None=None, cloud_browser_params: CloudBrowserParams | None=None, id: str | None=None, headers: dict[str, str] | None=None, allowed_domains: list[str] | None=None, prohibited_domains: list[str] | None=None, keep_alive: bool | None=None, minimum_wait_page_load_time: float | None=None, wait_for_network_idle_page_load_time: float | None=None, wait_between_actions: float | None=None, captcha_solver: bool | None=None, auto_download_pdfs: bool | None=None, cookie_whitelist_domains: list[str] | None=None, cross_origin_iframes: bool | None=None, highlight_elements: bool | None=None, dom_highlight_elements: bool | None=None, paint_order_filtering: bool | None=None, max_iframes: int | None=None, max_iframe_depth: int | None=None) -> None:
-        ...
+
 
     @overload
     def __init__(self, *, id: str | None=None, cdp_url: str | None=None, browser_profile: BrowserProfile | None=None, executable_path: str | Path | None=None, headless: bool | None=None, user_data_dir: str | Path | None=None, args: list[str] | None=None, downloads_path: str | Path | None=None, headers: dict[str, str] | None=None, allowed_domains: list[str] | None=None, prohibited_domains: list[str] | None=None, keep_alive: bool | None=None, minimum_wait_page_load_time: float | None=None, wait_for_network_idle_page_load_time: float | None=None, wait_between_actions: float | None=None, auto_download_pdfs: bool | None=None, cookie_whitelist_domains: list[str] | None=None, cross_origin_iframes: bool | None=None, highlight_elements: bool | None=None, dom_highlight_elements: bool | None=None, paint_order_filtering: bool | None=None, max_iframes: int | None=None, max_iframe_depth: int | None=None, env: dict[str, str | float | bool] | None=None, ignore_default_args: list[str] | Literal[True] | None=None, channel: str | None=None, chromium_sandbox: bool | None=None, devtools: bool | None=None, traces_dir: str | Path | None=None, accept_downloads: bool | None=None, permissions: list[str] | None=None, user_agent: str | None=None, screen: dict | None=None, viewport: dict | None=None, no_viewport: bool | None=None, device_scale_factor: float | None=None, record_har_content: str | None=None, record_har_mode: str | None=None, record_har_path: str | Path | None=None, record_video_dir: str | Path | None=None, record_video_framerate: int | None=None, record_video_size: dict | None=None, storage_state: str | Path | dict[str, Any] | None=None, disable_security: bool | None=None, deterministic_rendering: bool | None=None, proxy: ProxySettings | None=None, enable_default_extensions: bool | None=None, captcha_solver: bool | None=None, window_size: dict | None=None, window_position: dict | None=None, filter_highlight_ids: bool | None=None, profile_directory: str | None=None) -> None:
         ...
 
-    def __init__(self, id: str | None=None, cdp_url: str | None=None, is_local: bool=False, browser_profile: BrowserProfile | None=None, cloud_profile_id: UUID | str | None=None, cloud_proxy_country_code: ProxyCountryCode | None=None, cloud_timeout: int | None=None, profile_id: UUID | str | None=None, proxy_country_code: ProxyCountryCode | None=None, timeout: int | None=None, headers: dict[str, str] | None=None, env: dict[str, str | float | bool] | None=None, executable_path: str | Path | None=None, headless: bool | None=None, args: list[str] | None=None, ignore_default_args: list[str] | Literal[True] | None=None, channel: str | None=None, chromium_sandbox: bool | None=None, devtools: bool | None=None, downloads_path: str | Path | None=None, traces_dir: str | Path | None=None, accept_downloads: bool | None=None, permissions: list[str] | None=None, user_agent: str | None=None, screen: dict | None=None, viewport: dict | None=None, no_viewport: bool | None=None, device_scale_factor: float | None=None, record_har_content: str | None=None, record_har_mode: str | None=None, record_har_path: str | Path | None=None, record_video_dir: str | Path | None=None, record_video_framerate: int | None=None, record_video_size: dict | None=None, user_data_dir: str | Path | None=None, storage_state: str | Path | dict[str, Any] | None=None, use_cloud: bool | None=None, cloud_browser: bool | None=None, cloud_browser_params: CloudBrowserParams | None=None, disable_security: bool | None=None, deterministic_rendering: bool | None=None, allowed_domains: list[str] | None=None, prohibited_domains: list[str] | None=None, keep_alive: bool | None=None, proxy: ProxySettings | None=None, enable_default_extensions: bool | None=None, captcha_solver: bool | None=None, window_size: dict | None=None, window_position: dict | None=None, minimum_wait_page_load_time: float | None=None, wait_for_network_idle_page_load_time: float | None=None, wait_between_actions: float | None=None, filter_highlight_ids: bool | None=None, auto_download_pdfs: bool | None=None, profile_directory: str | None=None, cookie_whitelist_domains: list[str] | None=None, cross_origin_iframes: bool | None=None, highlight_elements: bool | None=None, dom_highlight_elements: bool | None=None, paint_order_filtering: bool | None=None, max_iframes: int | None=None, max_iframe_depth: int | None=None):
-        profile_kwargs = {k: v for k, v in locals().items() if k not in ['self', 'browser_profile', 'id', 'cloud_profile_id', 'cloud_proxy_country_code', 'cloud_timeout', 'profile_id', 'proxy_country_code', 'timeout'] and v is not None}
-        final_profile_id = cloud_profile_id if cloud_profile_id is not None else profile_id
-        final_proxy_country_code = cloud_proxy_country_code if cloud_proxy_country_code is not None else proxy_country_code
-        final_timeout = cloud_timeout if cloud_timeout is not None else timeout
-        if final_profile_id is not None or final_proxy_country_code is not None or final_timeout is not None:
-            cloud_params = CreateBrowserRequest(cloud_profile_id=final_profile_id, cloud_proxy_country_code=final_proxy_country_code, cloud_timeout=final_timeout)
-            profile_kwargs['cloud_browser_params'] = cloud_params
-            profile_kwargs['use_cloud'] = True
-        if 'cloud_browser' in profile_kwargs:
-            profile_kwargs['use_cloud'] = profile_kwargs.pop('cloud_browser')
-        if cloud_browser_params is not None:
-            profile_kwargs['use_cloud'] = True
+    def __init__(self, id: str | None=None, cdp_url: str | None=None, is_local: bool=False, browser_profile: BrowserProfile | None=None, headers: dict[str, str] | None=None, env: dict[str, str | float | bool] | None=None, executable_path: str | Path | None=None, headless: bool | None=None, args: list[str] | None=None, ignore_default_args: list[str] | Literal[True] | None=None, channel: str | None=None, chromium_sandbox: bool | None=None, devtools: bool | None=None, downloads_path: str | Path | None=None, traces_dir: str | Path | None=None, accept_downloads: bool | None=None, permissions: list[str] | None=None, user_agent: str | None=None, screen: dict | None=None, viewport: dict | None=None, no_viewport: bool | None=None, device_scale_factor: float | None=None, record_har_content: str | None=None, record_har_mode: str | None=None, record_har_path: str | Path | None=None, record_video_dir: str | None=None, record_video_framerate: int | None=None, record_video_size: dict | None=None, user_data_dir: str | Path | None=None, storage_state: str | Path | dict[str, Any] | None=None, disable_security: bool | None=None, deterministic_rendering: bool | None=None, allowed_domains: list[str] | None=None, prohibited_domains: list[str] | None=None, keep_alive: bool | None=None, proxy: ProxySettings | None=None, enable_default_extensions: bool | None=None, captcha_solver: bool | None=None, window_size: dict | None=None, window_position: dict | None=None, minimum_wait_page_load_time: float | None=None, wait_for_network_idle_page_load_time: float | None=None, wait_between_actions: float | None=None, filter_highlight_ids: bool | None=None, auto_download_pdfs: bool | None=None, profile_directory: str | None=None, cookie_whitelist_domains: list[str] | None=None, cross_origin_iframes: bool | None=None, highlight_elements: bool | None=None, dom_highlight_elements: bool | None=None, paint_order_filtering: bool | None=None, max_iframes: int | None=None, max_iframe_depth: int | None=None):
+        profile_kwargs = {k: v for k, v in locals().items() if k not in ['self', 'browser_profile', 'id'] and v is not None}
         if is_local is False and executable_path is not None:
             profile_kwargs['is_local'] = True
-        use_cloud = profile_kwargs.get('use_cloud') or profile_kwargs.get('cloud_browser')
-        if not cdp_url and (not use_cloud):
+        if not cdp_url:
             profile_kwargs['is_local'] = True
         if browser_profile is not None:
             merged_kwargs = {**browser_profile.model_dump(exclude_unset=True), **profile_kwargs}
@@ -135,9 +120,7 @@ class BrowserSession(BaseModel):
     def is_reconnecting(self) -> bool:
         return self._reconnecting
 
-    @property
-    def cloud_browser(self) -> bool:
-        return self.browser_profile.use_cloud
+
     event_bus: EventBus = Field(default_factory=EventBus)
     agent_focus_target_id: TargetID | None = None
     _cdp_client_root: CDPClient | None = PrivateAttr(default=None)
@@ -160,7 +143,7 @@ class BrowserSession(BaseModel):
     _recording_watchdog: Any | None = PrivateAttr(default=None)
     _captcha_watchdog: Any | None = PrivateAttr(default=None)
     _watchdogs_attached: bool = PrivateAttr(default=False)
-    _cloud_browser_client: CloudBrowserClient = PrivateAttr(default_factory=lambda: CloudBrowserClient())
+
     RECONNECT_WAIT_TIMEOUT: float = 54.0
     _reconnecting: bool = PrivateAttr(default=False)
     _reconnect_event: asyncio.Event = PrivateAttr(default_factory=asyncio.Event)
@@ -288,18 +271,7 @@ class BrowserSession(BaseModel):
         await self.attach_all_watchdogs()
         try:
             if not self.cdp_url:
-                if self.browser_profile.use_cloud or self.browser_profile.cloud_browser_params is not None:
-                    try:
-                        cloud_params = self.browser_profile.cloud_browser_params or CreateBrowserRequest()
-                        cloud_browser_response = await self._cloud_browser_client.create_browser(cloud_params)
-                        self.browser_profile.cdp_url = cloud_browser_response.cdpUrl
-                        self.browser_profile.is_local = False
-                        self.logger.info('🌤️ Successfully connected to cloud browser service')
-                    except CloudBrowserAuthError:
-                        raise CloudBrowserAuthError('Authentication failed for cloud browser service. Set system_API_KEY environment variable. You can also create an API key at https://cloud.browser-use.com/new-api-key')
-                    except CloudBrowserError as e:
-                        raise CloudBrowserError(f'Failed to create cloud browser: {e}')
-                elif self.is_local:
+                if self.is_local:
                     launch_event = self.event_bus.dispatch(BrowserLaunchEvent())
                     await launch_event
                     launch_result: BrowserLaunchResult = cast(BrowserLaunchResult, await launch_event.event_result(raise_if_none=True, raise_if_any=True))
@@ -530,12 +502,7 @@ class BrowserSession(BaseModel):
             if self.browser_profile.keep_alive and (not event.force):
                 self.event_bus.dispatch(BrowserStoppedEvent(reason='Kept alive due to keep_alive=True'))
                 return
-            if self.browser_profile.use_cloud:
-                try:
-                    await self._cloud_browser_client.stop_browser()
-                    self.logger.info('🌤️ Cloud browser session cleaned up')
-                except Exception as e:
-                    self.logger.debug(f'Failed to cleanup cloud browser session: {e}')
+
             self.logger.info(f'📢 on_BrowserStopEvent - Calling reset() (force={event.force}, keep_alive={self.browser_profile.keep_alive})')
             await self.reset()
             if self.is_local:
