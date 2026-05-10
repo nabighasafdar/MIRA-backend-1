@@ -2,3 +2,5 @@
 __pycache__/
 .env
 .venv/
+tests/profile/mira_dedicated_profile/
+*.bak
