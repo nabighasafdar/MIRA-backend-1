@@ -1,0 +1,4 @@
+from typing import Any
+CUSTOM_MODEL_PRICING: dict[str, dict[str, Any]] = {'bu-1-0': {'input_cost_per_token': 0.2 / 1000000, 'output_cost_per_token': 2.0 / 1000000, 'cache_read_input_token_cost': 0.02 / 1000000, 'cache_creation_input_token_cost': None, 'max_tokens': None, 'max_input_tokens': None, 'max_output_tokens': None}, 'bu-2-0': {'input_cost_per_token': 0.6 / 1000000, 'output_cost_per_token': 3.5 / 1000000, 'cache_read_input_token_cost': 0.06 / 1000000, 'cache_creation_input_token_cost': None, 'max_tokens': None, 'max_input_tokens': None, 'max_output_tokens': None}}
+CUSTOM_MODEL_PRICING['bu-latest'] = CUSTOM_MODEL_PRICING['bu-1-0']
+CUSTOM_MODEL_PRICING['smart'] = CUSTOM_MODEL_PRICING['bu-1-0']

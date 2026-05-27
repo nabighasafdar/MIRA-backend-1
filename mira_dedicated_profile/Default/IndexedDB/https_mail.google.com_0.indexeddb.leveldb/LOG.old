@@ -1,0 +1,6 @@
+2026/04/06-04:27:03.904 31dcaf Reusing MANIFEST /Users/nabigha/Downloads/MIRA-backend-main/mira_dedicated_profile/Default/IndexedDB/https_mail.google.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/04/06-04:27:03.905 31dcaf Recovering log #3
+2026/04/06-04:27:03.905 31dcaf Reusing old log /Users/nabigha/Downloads/MIRA-backend-main/mira_dedicated_profile/Default/IndexedDB/https_mail.google.com_0.indexeddb.leveldb/000003.log 
+2026/04/06-04:27:26.860 31dca4 Level-0 table #5: started
+2026/04/06-04:27:26.875 31dca4 Level-0 table #5: 3097324 bytes OK
+2026/04/06-04:27:26.878 31dca4 Delete type=0 #3

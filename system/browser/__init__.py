@@ -1,0 +1,20 @@
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .profile import BrowserProfile, ProxySettings
+    from .session import BrowserSession
+_LAZY_IMPORTS = {'ProxySettings': ('.profile', 'ProxySettings'), 'BrowserProfile': ('.profile', 'BrowserProfile'), 'BrowserSession': ('.session', 'BrowserSession')}
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        module_path, attr_name = _LAZY_IMPORTS[name]
+        try:
+            from importlib import import_module
+            full_module_path = f'system.browser{module_path}'
+            module = import_module(full_module_path)
+            attr = getattr(module, attr_name)
+            globals()[name] = attr
+            return attr
+        except ImportError as e:
+            raise ImportError(f'Failed to import {name} from {full_module_path}: {e}') from e
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+__all__ = ['BrowserSession', 'BrowserProfile', 'ProxySettings']
