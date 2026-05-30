@@ -3,23 +3,25 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import shutil
-import tempfile
 import os
-from pathlib import Path
 from typing import Any
 
 from system.agent.service import Agent
 from system.agent.workflow import WorkflowTemplate
-from system.browser.profile import BrowserProfile
-from system.browser.session import BrowserSession
 from system.config import CONFIG
 from system.llm.google.chat import ChatGoogle
 from system.llm.openai.chat import ChatOpenAI
 
 from api import jobs
+from api.browser_pool import acquire_session, release_session, wrap_task_for_continuation
 from api.mira_persona import build_extend_system_message
-from api.supabase_data import fetch_bookmark_workflow, fetch_profile_llm_key, fetch_wallet_items, wallet_to_extend_message
+from api.supabase_data import (
+	bookmark_workflow_to_template,
+	fetch_bookmark_workflow,
+	fetch_profile_llm_key,
+	fetch_wallet_items,
+	wallet_to_extend_message,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,7 @@ def _build_llm(profile_key: str | None):
 async def _run_agent_core(
 	job_id: str,
 	user_id: str,
+	chat_id: str | None,
 	task: str,
 	workflow_template: WorkflowTemplate | None,
 	extend_system_message: str | None,
@@ -61,13 +64,11 @@ async def _run_agent_core(
 
 	llm_key = await fetch_profile_llm_key(user_id)
 	llm = _build_llm(llm_key)
-	tmp_dir = Path(tempfile.mkdtemp(prefix='mira_browser_'))
-	headless_env = os.getenv('MIRA_HEADLESS', 'true').strip().lower()
-	headless = headless_env not in ('0', 'false', 'no', 'off')
-	profile_config = BrowserProfile(headless=headless, user_data_dir=str(tmp_dir))
-	session = BrowserSession(browser_profile=profile_config)
+
+	session, continuing = await acquire_session(user_id, chat_id)
+	task = wrap_task_for_continuation(task, continuing=continuing)
+
 	try:
-		await session.start()
 		async def on_step(browser_state_summary, model_output, step_number: int):  # type: ignore[no-untyped-def]
 			emit({
 				'event_type': 'agent_step',
@@ -85,7 +86,7 @@ async def _run_agent_core(
 			register_new_step_callback=on_step,
 			workflow_template=workflow_template,
 			extend_system_message=extend_system_message,
-			directly_open_url=True,
+			directly_open_url=not continuing,
 		)
 		history = await agent.run()
 		final_result = ''
@@ -101,14 +102,7 @@ async def _run_agent_core(
 		logger.exception('Agent job failed')
 		await queue.put({'event_type': 'error', 'message': str(e)})
 	finally:
-		try:
-			await session.stop()
-		except Exception:
-			logger.debug('Browser stop failed', exc_info=True)
-		try:
-			shutil.rmtree(tmp_dir, ignore_errors=True)
-		except Exception:
-			pass
+		await release_session(user_id, chat_id, close_browser=False)
 		await queue.put(None)
 
 
@@ -118,6 +112,7 @@ async def start_run_task(
 	task: str,
 	workflow_dict: dict | None = None,
 	load_wallet: bool = True,
+	chat_id: str | None = None,
 ) -> None:
 	wt: WorkflowTemplate | None = None
 	if workflow_dict:
@@ -132,7 +127,11 @@ async def start_run_task(
 	else:
 		extend = build_extend_system_message(None)
 
-	t = asyncio.create_task(_run_agent_core(job_id, user_id, task, wt, extend))
+	if chat_id is None:
+		rec = jobs.get_job(job_id)
+		chat_id = rec.chat_id if rec else None
+
+	t = asyncio.create_task(_run_agent_core(job_id, user_id, chat_id, task, wt, extend))
 	jobs.attach_runner_task(job_id, t)
 
 

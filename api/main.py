@@ -62,7 +62,7 @@ async def agent_run(body: AgentRunRequest):
 	if not task and not wf_dict:
 		raise HTTPException(status_code=400, detail='task or workflow_json required')
 	job_id = await jobs.register_job(body.user_id, body.chat_id)
-	await start_run_task(job_id, body.user_id, task, wf_dict, load_wallet=body.load_wallet)
+	await start_run_task(job_id, body.user_id, task, wf_dict, load_wallet=body.load_wallet, chat_id=body.chat_id)
 	return {'job_id': job_id}
 
 
