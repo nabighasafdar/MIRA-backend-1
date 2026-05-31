@@ -15,5 +15,7 @@ RUN playwright install --with-deps chromium
 EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 ENV IN_DOCKER=true
+# Production containers (Render/Docker) have no display — use /agent/[jobId] live view in Mira.
+ENV MIRA_HEADLESS=true
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

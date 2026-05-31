@@ -10,8 +10,19 @@ The browser agent **must** run on hardware that can launch Chromium (Docker with
 | `GOOGLE_API_KEY` | Usually | Default LLM for the agent (`ChatGoogle`) |
 | `SUPABASE_URL` | For wallet/profile | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | For wallet/profile | Service role (server only; never expose to the browser) |
-| `CORS_ORIGINS` | No | Comma-separated list, e.g. `http://localhost:3000,https://your-app.vercel.app` |
+| `CORS_ORIGINS` | Yes (prod) | Comma-separated, e.g. `http://localhost:3000,https://your-app.vercel.app` |
+| `MIRA_HEADLESS` | Yes (Docker/Render) | `true` in containers; `false` only for local visible Chromium |
+| `MIRA_BROWSER_PROFILE_DIR` | No | Browser profile storage (default `/tmp/mira_browser_profiles`) |
+| `MIRA_BROWSER_IDLE_SECONDS` | No | Evict idle browsers (default `1800`) |
 | `MIRA_WORKFLOW_OUTPUT_DIR` | No | Directory for recorded workflow JSON files |
+
+Generate a production secret:
+
+```bash
+openssl rand -hex 32
+```
+
+Use the **same** value for `AGENT_API_SECRET` on Render and `AGENT_API_SECRET` on Vercel.
 
 ## Run locally
 
@@ -20,26 +31,66 @@ cd MIRA-backend-main1
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
 playwright install chromium
-export AGENT_API_SECRET=your-secret
-export GOOGLE_API_KEY=your-key
+cp .env.example .env   # edit keys
 uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
+
+For a visible browser window locally: `MIRA_HEADLESS=false` in `.env`.
 
 ## Docker
 
 ```bash
 docker build -t mira-agent .
-docker run -p 8000:8000 --env-file .env mira-agent
+docker run -p 8000:8000 --env-file .env -e MIRA_HEADLESS=true mira-agent
+curl http://localhost:8000/health
 ```
 
-Point the Next.js app at this host with `AGENT_API_URL` and the same `AGENT_API_SECRET`.
+## Render (Docker web service)
 
-## Frontend (Mira Next.js)
+Recommended for production backend.
+
+### Quick setup (dashboard)
+
+1. [Render Dashboard](https://dashboard.render.com) → **New** → **Web Service**
+2. Connect GitHub repo: `nabighasafdar/MIRA-backend-1`, branch **`deployment-backend`**
+3. **Runtime:** Docker
+4. **Health check path:** `/health`
+5. **Instance type:** at least **2 GB RAM** (Chromium + Playwright; 4 GB safer for demos)
+6. Set environment variables (see table above). Set `CORS_ORIGINS` to your Vercel URL.
+7. Deploy and copy the public HTTPS URL (e.g. `https://mira-agent.onrender.com`)
+
+### Blueprint (repo root)
+
+This repo includes [`render.yaml`](render.yaml). On Render: **New** → **Blueprint** → select the repo and fill in secret env vars when prompted.
+
+### Render notes
+
+- Containers have **no GUI** — users watch automation via Mira **live view** (`/agent/[jobId]`) or in-chat preview.
+- Free/starter tiers may **cold start** or OOM on heavy jobs; use paid RAM for FYP demos.
+- Optional: attach a **persistent disk** at `/tmp/mira_browser_profiles` for browser session reuse across restarts.
+
+## Frontend (Mira Next.js on Vercel)
 
 Set on the server (never prefix with `NEXT_PUBLIC_`):
 
-- `AGENT_API_URL` — HTTPS URL of the agent API  
-- `AGENT_API_SECRET` — same secret as Python  
-- `OPENAI_API_KEY` — optional; improves `/api/plan-task` structured micro-steps  
+- `AGENT_API_URL` — HTTPS URL of this service (no trailing slash)
+- `AGENT_API_SECRET` — same secret as above
+- `OPENAI_API_KEY` — optional; improves `/api/plan-task` structured micro-steps
 
-For long SSE streams on Vercel, use Node runtime and configure `maxDuration` on `/api/agent-events/[jobId]` (already set in repo).
+See [`Mira/DEPLOYMENT.md`](../Mira/DEPLOYMENT.md) for Vercel env vars and Supabase auth URLs.
+
+For long SSE streams on Vercel, `/api/agent-events/[jobId]` uses `maxDuration = 300` (requires a plan that supports 5-minute functions).
+
+## Smoke test (after deploy)
+
+```bash
+curl -s https://YOUR-RENDER-URL/health
+# {"status":"ok"}
+
+curl -s -X POST https://YOUR-RENDER-URL/agent/run \
+  -H "Authorization: Bearer YOUR_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"test","chat_id":null,"task":"open google.com"}'
+```
+
+Or run [`scripts/smoke-test.sh`](scripts/smoke-test.sh) with env vars set.

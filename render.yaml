@@ -1,0 +1,33 @@
+# Render Blueprint — MIRA Agent API (Docker)
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: mira-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    branch: deployment-backend
+    plan: starter
+    region: oregon
+    healthCheckPath: /health
+    numInstances: 1
+    envVars:
+      - key: AGENT_API_SECRET
+        generateValue: true
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: MIRA_HEADLESS
+        value: "true"
+      - key: MIRA_BROWSER_PROFILE_DIR
+        value: /tmp/mira_browser_profiles
+      - key: MIRA_BROWSER_IDLE_SECONDS
+        value: "1800"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: IN_DOCKER
+        value: "true"

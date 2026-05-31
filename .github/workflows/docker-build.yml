@@ -1,0 +1,15 @@
+name: Docker build
+
+on:
+  push:
+    branches: [deployment-backend, main]
+  pull_request:
+    branches: [deployment-backend, main]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t mira-agent .
