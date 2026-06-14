@@ -7,9 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libcups2 fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . /app
+COPY pyproject.toml README.md ./
+COPY system ./system/
+COPY api ./api/
 
-RUN pip install --no-cache-dir -e .
+ENV PYTHONPATH=/app
+RUN pip install --no-cache-dir .
+RUN python -c "import api.main; print('api import ok')"
 RUN playwright install --with-deps chromium
 
 EXPOSE 8000

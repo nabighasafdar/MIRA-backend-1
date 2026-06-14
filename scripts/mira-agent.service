@@ -1,0 +1,15 @@
+[Unit]
+Description=MIRA Agent API (Docker)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ubuntu/MIRA-backend-1
+ExecStart=/usr/bin/docker start mira-agent
+ExecStop=/usr/bin/docker stop mira-agent
+# Container must already exist from: docker run -d --name mira-agent ...
+
+[Install]
+WantedBy=multi-user.target

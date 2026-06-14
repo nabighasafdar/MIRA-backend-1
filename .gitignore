@@ -1,4 +1,23 @@
 *.pyc
 __pycache__/
+*.py[cod]
+*.egg-info
+
 .env
 .venv/
+venv/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.DS_Store
+*.log
+
+# Browser profile caches (do not commit)
+mira_dedicated_profile/
+mira_profile/
+tests/profile/mira_dedicated_profile/
+
+# Windows path artifact from local dev
+C:/

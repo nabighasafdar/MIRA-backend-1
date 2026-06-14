@@ -11,9 +11,7 @@ __pycache__
 .env
 .env.*
 !.env.example
-*.md
-!README.md
-!DEPLOYMENT.md
+!.env.production.example
 tests/
 test_*.py
 demo_*.py

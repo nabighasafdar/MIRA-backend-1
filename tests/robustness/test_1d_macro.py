@@ -1,6 +1,8 @@
 import asyncio
 import os
+import sys
 from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
 from system.agent.service import Agent
 from system.agent.workflow import WorkflowTemplate
 from base import run_test

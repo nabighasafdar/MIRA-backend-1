@@ -22,7 +22,7 @@ Generate a production secret:
 openssl rand -hex 32
 ```
 
-Use the **same** value for `AGENT_API_SECRET` on Render and `AGENT_API_SECRET` on Vercel.
+Use the **same** value for `AGENT_API_SECRET` on the backend host (Render, AWS EC2, etc.) and `AGENT_API_SECRET` on Vercel.
 
 ## Run locally
 
@@ -41,9 +41,27 @@ For a visible browser window locally: `MIRA_HEADLESS=false` in `.env`.
 
 ```bash
 docker build -t mira-agent .
-docker run -p 8000:8000 --env-file .env -e MIRA_HEADLESS=true mira-agent
+docker run -d --name mira-agent --restart unless-stopped -p 8000:8000 --env-file .env mira-agent
 curl http://localhost:8000/health
 ```
+
+## AWS EC2 (Docker)
+
+Recommended for FYP when you want a fixed public IP and full control. Full step-by-step guide: **[`AWS_DEPLOYMENT.md`](AWS_DEPLOYMENT.md)**.
+
+### Quick setup
+
+1. Launch Ubuntu 24.04 EC2 (`m7i-flex.large` recommended, 8 GB RAM, x86 Intel)
+2. Security group: SSH (22) + Custom TCP **8000** (0.0.0.0/0 for demo)
+3. SSH in and run [`scripts/aws-ec2-setup.sh`](scripts/aws-ec2-setup.sh) (installs Docker, clones repo)
+4. `cp .env.production.example .env` → edit secrets
+5. `docker build -t mira-agent .` then `docker run` (see AWS guide)
+6. Verify: `curl http://EC2_PUBLIC_IP:8000/health`
+7. Set Vercel `AGENT_API_URL=http://EC2_PUBLIC_IP:8000` and matching `AGENT_API_SECRET`
+
+If `git clone` fails (private repo), copy the repo from your Mac with `scp` — see AWS guide.
+
+Optional: [`scripts/mira-agent.service`](scripts/mira-agent.service) for systemd restart on reboot.
 
 ## Render (Docker web service)
 
@@ -73,7 +91,7 @@ This repo includes [`render.yaml`](render.yaml). On Render: **New** → **Bluepr
 
 Set on the server (never prefix with `NEXT_PUBLIC_`):
 
-- `AGENT_API_URL` — HTTPS URL of this service (no trailing slash)
+- `AGENT_API_URL` — backend URL (Render HTTPS or EC2 `http://IP:8000`), **no trailing slash**
 - `AGENT_API_SECRET` — same secret as above
 - `OPENAI_API_KEY` — optional; improves `/api/plan-task` structured micro-steps
 
@@ -84,10 +102,10 @@ For long SSE streams on Vercel, `/api/agent-events/[jobId]` uses `maxDuration = 
 ## Smoke test (after deploy)
 
 ```bash
-curl -s https://YOUR-RENDER-URL/health
+curl -s http://YOUR-BACKEND-URL/health
 # {"status":"ok"}
 
-curl -s -X POST https://YOUR-RENDER-URL/agent/run \
+curl -s -X POST http://YOUR-BACKEND-URL/agent/run \
   -H "Authorization: Bearer YOUR_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"user_id":"test","chat_id":null,"task":"open google.com"}'
