@@ -84,6 +84,15 @@ async def job_meta(job_id: str):
 	return {'user_id': rec.user_id, 'chat_id': rec.chat_id}
 
 
+@app.post('/agent/jobs/{job_id}/cancel', dependencies=[Depends(_auth)])
+async def job_cancel(job_id: str):
+	ok, detail = jobs.cancel_job(job_id)
+	if not ok:
+		status = 404 if detail == 'Unknown job' else 409
+		raise HTTPException(status_code=status, detail=detail)
+	return {'status': 'cancelling', 'detail': detail}
+
+
 async def _job_event_stream(job_id: str):
 	rec = jobs.get_job(job_id)
 	if not rec:

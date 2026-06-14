@@ -16,6 +16,7 @@ class JobRecord:
 	chat_id: str | None
 	queue: asyncio.Queue[Any | None]
 	task: asyncio.Task | None = None
+	agent: Any | None = None
 
 
 async def register_job(user_id: str, chat_id: str | None) -> str:
@@ -56,3 +57,19 @@ def verify_job_user(job_id: str, user_id: str) -> bool:
 
 def delete_job(job_id: str) -> None:
 	_jobs.pop(job_id, None)
+
+
+def cancel_job(job_id: str) -> tuple[bool, str]:
+	"""Request stop for a running job. Returns (ok, detail)."""
+	rec = _jobs.get(job_id)
+	if not rec:
+		return False, 'Unknown job'
+	if rec.task is None or rec.task.done():
+		return False, 'Job is not running'
+	if rec.agent is not None:
+		try:
+			rec.agent.stop()
+		except Exception:
+			pass
+	rec.task.cancel()
+	return True, 'Cancelling'

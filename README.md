@@ -4,7 +4,8 @@ Python browser automation (`system.agent.Agent`) packaged as an installable libr
 
 - `POST /agent/run` — run a composed task (`user_id`, `chat_id`, `task`)
 - `POST /agent/run-bookmark` — run a saved workflow from Supabase bookmarks
-- `GET /agent/jobs/{job_id}/events` — SSE stream (`agent_thought`, `telemetry_billing`, `workflow_macro_recorded`, `done`, `error`)
+- `GET /agent/jobs/{job_id}/events` — SSE stream (`agent_thought`, `telemetry_billing`, `workflow_macro_recorded`, `done`, `cancelled`, `error`)
+- `POST /agent/jobs/{job_id}/cancel` — stop a running job mid-task
 
 ## Quick start — Agent API
 

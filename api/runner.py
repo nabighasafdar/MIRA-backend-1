@@ -88,6 +88,8 @@ async def _run_agent_core(
 			extend_system_message=extend_system_message,
 			directly_open_url=not continuing,
 		)
+		if rec:
+			rec.agent = agent
 		history = await agent.run()
 		final_result = ''
 		ok = False
@@ -98,6 +100,9 @@ async def _run_agent_core(
 			except Exception:
 				final_result = ''
 		await queue.put({'event_type': 'done', 'final_result': final_result, 'successful': ok})
+	except asyncio.CancelledError:
+		logger.info('Agent job %s cancelled by user', job_id)
+		await queue.put({'event_type': 'cancelled', 'message': 'Task stopped.'})
 	except Exception as e:
 		logger.exception('Agent job failed')
 		await queue.put({'event_type': 'error', 'message': str(e)})
