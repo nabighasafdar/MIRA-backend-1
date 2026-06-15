@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 from typing import Any
 
 from system.agent.service import Agent
@@ -14,12 +13,20 @@ from system.llm.openai.chat import ChatOpenAI
 
 from api import jobs
 from api.browser_pool import acquire_session, release_session, wrap_task_for_continuation
+from api.browser_profile import (
+	PROFILE_SETUP_TASK,
+	mark_profile_initialized_local,
+	persistent_profiles_enabled,
+	profile_has_login_data,
+)
 from api.mira_persona import build_extend_system_message
 from api.supabase_data import (
 	bookmark_workflow_to_template,
 	fetch_bookmark_workflow,
 	fetch_profile_llm_key,
 	fetch_wallet_items,
+	is_browser_profile_ready,
+	set_browser_profile_ready,
 	wallet_to_extend_message,
 )
 
@@ -49,6 +56,9 @@ async def _run_agent_core(
 	task: str,
 	workflow_template: WorkflowTemplate | None,
 	extend_system_message: str | None,
+	*,
+	phase: str = 'main',
+	close_stream: bool = True,
 ) -> None:
 	rec = jobs.get_job(job_id)
 	if not rec:
@@ -81,6 +91,7 @@ async def _run_agent_core(
 				'url': getattr(browser_state_summary, 'url', None),
 				'screenshot_url': _b64_png_to_data_url(getattr(browser_state_summary, 'screenshot', None)),
 				'thinking': getattr(getattr(model_output, 'current_state', None), 'thinking', None) if model_output else None,
+				'phase': phase,
 			})
 
 		agent = Agent(
@@ -105,24 +116,26 @@ async def _run_agent_core(
 			except Exception:
 				final_result = ''
 		billing_payload: dict[str, Any] | None = None
-		try:
-			usage = await agent.token_cost_service.get_usage_summary()
-			billing_payload = {
-				'model': getattr(llm, 'model', 'unknown'),
-				'prompt_tokens': usage.total_prompt_tokens,
-				'completion_tokens': usage.total_completion_tokens,
-				'cached_tokens': usage.total_prompt_cached_tokens,
-				'total_tokens': usage.total_tokens,
-				'cost_usd': round(usage.total_cost, 6),
-			}
-		except Exception as e:
-			logger.debug('Failed to compute billing summary for job %s: %s', job_id, e)
+		if phase == 'main':
+			try:
+				usage = await agent.token_cost_service.get_usage_summary()
+				billing_payload = {
+					'model': getattr(llm, 'model', 'unknown'),
+					'prompt_tokens': usage.total_prompt_tokens,
+					'completion_tokens': usage.total_completion_tokens,
+					'cached_tokens': usage.total_prompt_cached_tokens,
+					'total_tokens': usage.total_tokens,
+					'cost_usd': round(usage.total_cost, 6),
+				}
+			except Exception as e:
+				logger.debug('Failed to compute billing summary for job %s: %s', job_id, e)
 		done_event: dict[str, Any] = {
 			'event_type': 'done',
 			'final_result': final_result,
 			'successful': ok,
-			'workflow_json': captured_workflow_json,
+			'workflow_json': captured_workflow_json if phase == 'main' else None,
 			'original_task': task,
+			'phase': phase,
 		}
 		if billing_payload:
 			done_event['billing'] = billing_payload
@@ -135,7 +148,70 @@ async def _run_agent_core(
 		await queue.put({'event_type': 'error', 'message': str(e)})
 	finally:
 		await release_session(user_id, chat_id, close_browser=False)
-		await queue.put(None)
+		if close_stream:
+			await queue.put(None)
+
+
+async def _run_with_profile_setup_if_needed(
+	job_id: str,
+	user_id: str,
+	chat_id: str | None,
+	task: str,
+	workflow_template: WorkflowTemplate | None,
+	extend_system_message: str | None,
+) -> None:
+	rec = jobs.get_job(job_id)
+	if not rec:
+		return
+	queue = rec.queue
+
+	needs_setup = persistent_profiles_enabled() and not await is_browser_profile_ready(user_id)
+	if needs_setup:
+		await queue.put({
+			'event_type': 'profile_setup',
+			'message': (
+				'First-time browser setup: MIRA is opening YouTube so you can sign in with Google. '
+				'Your session will be saved for all future tasks.'
+			),
+		})
+		items = await fetch_wallet_items(user_id)
+		setup_extend = build_extend_system_message(wallet_to_extend_message(items))
+		await _run_agent_core(
+			job_id,
+			user_id,
+			chat_id,
+			PROFILE_SETUP_TASK,
+			None,
+			setup_extend,
+			phase='setup',
+			close_stream=False,
+		)
+		mark_profile_initialized_local(user_id)
+		if profile_has_login_data(user_id):
+			await set_browser_profile_ready(user_id, True)
+		else:
+			await queue.put({
+				'event_type': 'profile_setup_warning',
+				'message': (
+					'Browser profile folder was created but Google/YouTube sign-in was not detected. '
+					'Add your Google credentials in Dashboard → Info Wallet, then run the agent again.'
+				),
+			})
+		await queue.put({
+			'event_type': 'profile_setup_done',
+			'message': 'Browser profile saved. Starting your task…',
+		})
+
+	await _run_agent_core(
+		job_id,
+		user_id,
+		chat_id,
+		task,
+		workflow_template,
+		extend_system_message,
+		phase='main',
+		close_stream=True,
+	)
 
 
 async def start_run_task(
@@ -163,7 +239,9 @@ async def start_run_task(
 		rec = jobs.get_job(job_id)
 		chat_id = rec.chat_id if rec else None
 
-	t = asyncio.create_task(_run_agent_core(job_id, user_id, chat_id, task, wt, extend))
+	t = asyncio.create_task(
+		_run_with_profile_setup_if_needed(job_id, user_id, chat_id, task, wt, extend)
+	)
 	jobs.attach_runner_task(job_id, t)
 
 

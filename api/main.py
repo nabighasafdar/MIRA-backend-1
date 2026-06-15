@@ -12,7 +12,9 @@ from pydantic import BaseModel, Field
 from system.config import CONFIG
 
 from api import jobs
+from api.browser_profile import mark_profile_initialized_local, profile_has_login_data
 from api.runner import parse_request_workflow, start_bookmark_task, start_run_task
+from api.supabase_data import fetch_browser_profile_ready, is_browser_profile_ready, set_browser_profile_ready
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('mira.api')
@@ -44,6 +46,10 @@ class BookmarkRunRequest(BaseModel):
 	load_wallet: bool = True
 
 
+class BrowserProfileUserRequest(BaseModel):
+	user_id: str = Field(..., min_length=1)
+
+
 app = FastAPI(title='MIRA Agent API', version='0.1.0')
 origins = [o.strip() for o in (CONFIG.CORS_ORIGINS or '').split(',') if o.strip()]
 if not origins:
@@ -54,6 +60,24 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True
 @app.get('/health')
 async def health():
 	return {'status': 'ok'}
+
+
+@app.get('/agent/browser-profile/status', dependencies=[Depends(_auth)])
+async def browser_profile_status(user_id: str):
+	ready = await is_browser_profile_ready(user_id)
+	db_flag = await fetch_browser_profile_ready(user_id)
+	return {
+		'ready': ready,
+		'has_local_data': profile_has_login_data(user_id),
+		'db_flag': db_flag,
+	}
+
+
+@app.post('/agent/browser-profile/mark-ready', dependencies=[Depends(_auth)])
+async def browser_profile_mark_ready(body: BrowserProfileUserRequest):
+	mark_profile_initialized_local(body.user_id)
+	await set_browser_profile_ready(body.user_id, True)
+	return {'ok': True, 'ready': True}
 
 
 @app.post('/agent/run', dependencies=[Depends(_auth)])

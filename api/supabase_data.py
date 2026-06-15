@@ -16,6 +16,39 @@ def _headers(service_key: str) -> dict[str, str]:
 	}
 
 
+async def fetch_browser_profile_ready(user_id: str) -> bool:
+	if not CONFIG.SUPABASE_URL or not CONFIG.SUPABASE_SERVICE_ROLE_KEY:
+		return False
+	url = f'{CONFIG.SUPABASE_URL.rstrip("/")}/rest/v1/profiles'
+	params = {'id': f'eq.{user_id}', 'select': 'browser_profile_ready'}
+	async with httpx.AsyncClient(timeout=30.0) as client:
+		r = await client.get(url, params=params, headers=_headers(CONFIG.SUPABASE_SERVICE_ROLE_KEY))
+		if r.status_code != 200:
+			return False
+		rows = r.json()
+	if not rows:
+		return False
+	return bool(rows[0].get('browser_profile_ready'))
+
+
+async def set_browser_profile_ready(user_id: str, ready: bool) -> None:
+	if not CONFIG.SUPABASE_URL or not CONFIG.SUPABASE_SERVICE_ROLE_KEY:
+		return
+	url = f'{CONFIG.SUPABASE_URL.rstrip("/")}/rest/v1/profiles'
+	params = {'id': f'eq.{user_id}'}
+	payload = {'browser_profile_ready': ready}
+	async with httpx.AsyncClient(timeout=30.0) as client:
+		await client.patch(url, params=params, json=payload, headers=_headers(CONFIG.SUPABASE_SERVICE_ROLE_KEY))
+
+
+async def is_browser_profile_ready(user_id: str) -> bool:
+	from api.browser_profile import profile_has_login_data
+
+	if profile_has_login_data(user_id):
+		return True
+	return await fetch_browser_profile_ready(user_id)
+
+
 async def fetch_profile_llm_key(user_id: str) -> str | None:
 	if not CONFIG.SUPABASE_URL or not CONFIG.SUPABASE_SERVICE_ROLE_KEY:
 		return None
