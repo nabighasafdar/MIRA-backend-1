@@ -40,6 +40,7 @@ class AgentRunRequest(BaseModel):
 class BookmarkRunRequest(BaseModel):
 	user_id: str = Field(..., min_length=1)
 	bookmark_id: str = Field(..., min_length=1)
+	chat_id: str | None = None
 	load_wallet: bool = True
 
 
@@ -68,7 +69,7 @@ async def agent_run(body: AgentRunRequest):
 
 @app.post('/agent/run-bookmark', dependencies=[Depends(_auth)])
 async def agent_run_bookmark(body: BookmarkRunRequest):
-	job_id = await jobs.register_job(body.user_id, chat_id=None)
+	job_id = await jobs.register_job(body.user_id, chat_id=body.chat_id)
 	err = await start_bookmark_task(job_id, body.user_id, body.bookmark_id, load_wallet=body.load_wallet)
 	if err:
 		jobs.delete_job(job_id)
