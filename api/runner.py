@@ -107,6 +107,10 @@ async def _run_agent_core(
 		if rec:
 			rec.agent = agent
 		history = await agent.run()
+		was_stopped = bool(getattr(agent.state, 'stopped', False))
+		if was_stopped:
+			await queue.put({'event_type': 'cancelled', 'message': 'Task stopped.'})
+			return
 		final_result = ''
 		ok = False
 		if history:
@@ -143,10 +147,13 @@ async def _run_agent_core(
 	except asyncio.CancelledError:
 		logger.info('Agent job %s cancelled by user', job_id)
 		await queue.put({'event_type': 'cancelled', 'message': 'Task stopped.'})
+		raise
 	except Exception as e:
 		logger.exception('Agent job failed')
 		await queue.put({'event_type': 'error', 'message': str(e)})
 	finally:
+		if rec:
+			rec.agent = None
 		await release_session(user_id, chat_id, close_browser=False)
 		if close_stream:
 			await queue.put(None)
@@ -165,53 +172,58 @@ async def _run_with_profile_setup_if_needed(
 		return
 	queue = rec.queue
 
-	needs_setup = persistent_profiles_enabled() and not await is_browser_profile_ready(user_id)
-	if needs_setup:
-		await queue.put({
-			'event_type': 'profile_setup',
-			'message': (
-				'First-time browser setup: MIRA is opening YouTube so you can sign in with Google. '
-				'Your session will be saved for all future tasks.'
-			),
-		})
-		items = await fetch_wallet_items(user_id)
-		setup_extend = build_extend_system_message(wallet_to_extend_message(items))
+	try:
+		needs_setup = persistent_profiles_enabled() and not await is_browser_profile_ready(user_id)
+		if needs_setup:
+			await queue.put({
+				'event_type': 'profile_setup',
+				'message': (
+					'First-time browser setup: MIRA is opening YouTube so you can sign in with Google. '
+					'Your session will be saved for all future tasks.'
+				),
+			})
+			items = await fetch_wallet_items(user_id)
+			setup_extend = build_extend_system_message(wallet_to_extend_message(items))
+			await _run_agent_core(
+				job_id,
+				user_id,
+				chat_id,
+				PROFILE_SETUP_TASK,
+				None,
+				setup_extend,
+				phase='setup',
+				close_stream=False,
+			)
+			mark_profile_initialized_local(user_id)
+			if profile_has_login_data(user_id):
+				await set_browser_profile_ready(user_id, True)
+			else:
+				await queue.put({
+					'event_type': 'profile_setup_warning',
+					'message': (
+						'Browser profile folder was created but Google/YouTube sign-in was not detected. '
+						'Add your Google credentials in Dashboard → Info Wallet, then run the agent again.'
+					),
+				})
+			await queue.put({
+				'event_type': 'profile_setup_done',
+				'message': 'Browser profile saved. Starting your task…',
+			})
+
 		await _run_agent_core(
 			job_id,
 			user_id,
 			chat_id,
-			PROFILE_SETUP_TASK,
-			None,
-			setup_extend,
-			phase='setup',
-			close_stream=False,
+			task,
+			workflow_template,
+			extend_system_message,
+			phase='main',
+			close_stream=True,
 		)
-		mark_profile_initialized_local(user_id)
-		if profile_has_login_data(user_id):
-			await set_browser_profile_ready(user_id, True)
-		else:
-			await queue.put({
-				'event_type': 'profile_setup_warning',
-				'message': (
-					'Browser profile folder was created but Google/YouTube sign-in was not detected. '
-					'Add your Google credentials in Dashboard → Info Wallet, then run the agent again.'
-				),
-			})
-		await queue.put({
-			'event_type': 'profile_setup_done',
-			'message': 'Browser profile saved. Starting your task…',
-		})
-
-	await _run_agent_core(
-		job_id,
-		user_id,
-		chat_id,
-		task,
-		workflow_template,
-		extend_system_message,
-		phase='main',
-		close_stream=True,
-	)
+	except asyncio.CancelledError:
+		logger.info('Agent job %s cancelled during profile setup or main run', job_id)
+		await jobs.close_job_stream(job_id)
+		raise
 
 
 async def start_run_task(

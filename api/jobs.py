@@ -65,7 +65,7 @@ def cancel_job(job_id: str) -> tuple[bool, str]:
 	if not rec:
 		return False, 'Unknown job'
 	if rec.task is None or rec.task.done():
-		return False, 'Job is not running'
+		return True, 'Already stopped'
 	if rec.agent is not None:
 		try:
 			rec.agent.stop()
