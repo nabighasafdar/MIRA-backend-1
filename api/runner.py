@@ -257,15 +257,44 @@ async def start_run_task(
 	jobs.attach_runner_task(job_id, t)
 
 
-async def start_bookmark_task(job_id: str, user_id: str, bookmark_id: str, load_wallet: bool = True) -> None | str:
+_MACRO_FALLBACK_TASK = (
+	'Execute the saved workflow macro faithfully. '
+	'If playback fails at any step, recover autonomously to finish the intent.'
+)
+
+
+async def start_bookmark_task(
+	job_id: str,
+	user_id: str,
+	bookmark_id: str,
+	load_wallet: bool = True,
+	chat_id: str | None = None,
+) -> None | str:
 	row = await fetch_bookmark_workflow(user_id, bookmark_id)
 	if not row:
 		return 'Bookmark not found'
-	wf = bookmark_workflow_to_template(row.get('agent_workflow'))
+	agent_wf = row.get('agent_workflow')
+	wf = bookmark_workflow_to_template(agent_wf)
 	if wf is None:
 		return 'Bookmark has no runnable WorkflowTemplate JSON (save a workflow macro JSON from an agent run, or paste workflow JSON)'
-	task = row.get('name') or 'Run bookmark workflow'
-	await start_run_task(job_id, user_id, task, wf, load_wallet=load_wallet)
+
+	user_command = ''
+	if isinstance(agent_wf, dict):
+		user_command = (agent_wf.get('user_command') or '').strip()
+
+	clean_wf = {
+		'workflow_id': wf['workflow_id'],
+		'target_url': wf.get('target_url'),
+		'original_task': user_command or _MACRO_FALLBACK_TASK,
+		'steps': wf['steps'],
+	}
+
+	if chat_id is None:
+		rec = jobs.get_job(job_id)
+		chat_id = rec.chat_id if rec else None
+
+	# Empty task → start_run_task uses workflow original_task (short user intent, not display name).
+	await start_run_task(job_id, user_id, '', clean_wf, load_wallet=load_wallet, chat_id=chat_id)
 	return None
 
 

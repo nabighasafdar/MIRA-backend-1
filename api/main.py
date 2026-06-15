@@ -94,7 +94,13 @@ async def agent_run(body: AgentRunRequest):
 @app.post('/agent/run-bookmark', dependencies=[Depends(_auth)])
 async def agent_run_bookmark(body: BookmarkRunRequest):
 	job_id = await jobs.register_job(body.user_id, chat_id=body.chat_id)
-	err = await start_bookmark_task(job_id, body.user_id, body.bookmark_id, load_wallet=body.load_wallet)
+	err = await start_bookmark_task(
+		job_id,
+		body.user_id,
+		body.bookmark_id,
+		load_wallet=body.load_wallet,
+		chat_id=body.chat_id,
+	)
 	if err:
 		jobs.delete_job(job_id)
 		raise HTTPException(status_code=400, detail=err)
