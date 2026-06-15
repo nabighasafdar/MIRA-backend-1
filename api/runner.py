@@ -104,13 +104,29 @@ async def _run_agent_core(
 				final_result = history.final_result() or ''
 			except Exception:
 				final_result = ''
-		await queue.put({
+		billing_payload: dict[str, Any] | None = None
+		try:
+			usage = await agent.token_cost_service.get_usage_summary()
+			billing_payload = {
+				'model': getattr(llm, 'model', 'unknown'),
+				'prompt_tokens': usage.total_prompt_tokens,
+				'completion_tokens': usage.total_completion_tokens,
+				'cached_tokens': usage.total_prompt_cached_tokens,
+				'total_tokens': usage.total_tokens,
+				'cost_usd': round(usage.total_cost, 6),
+			}
+		except Exception as e:
+			logger.debug('Failed to compute billing summary for job %s: %s', job_id, e)
+		done_event: dict[str, Any] = {
 			'event_type': 'done',
 			'final_result': final_result,
 			'successful': ok,
 			'workflow_json': captured_workflow_json,
 			'original_task': task,
-		})
+		}
+		if billing_payload:
+			done_event['billing'] = billing_payload
+		await queue.put(done_event)
 	except asyncio.CancelledError:
 		logger.info('Agent job %s cancelled by user', job_id)
 		await queue.put({'event_type': 'cancelled', 'message': 'Task stopped.'})
