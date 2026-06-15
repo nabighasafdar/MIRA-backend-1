@@ -55,7 +55,12 @@ async def _run_agent_core(
 		return
 	queue = rec.queue
 
+	captured_workflow_json: str | None = None
+
 	def emit(data: dict) -> None:
+		nonlocal captured_workflow_json
+		if data.get('event_type') == 'workflow_macro_recorded' and data.get('workflow_json'):
+			captured_workflow_json = data['workflow_json']
 		try:
 			loop = asyncio.get_running_loop()
 		except RuntimeError:
@@ -99,7 +104,13 @@ async def _run_agent_core(
 				final_result = history.final_result() or ''
 			except Exception:
 				final_result = ''
-		await queue.put({'event_type': 'done', 'final_result': final_result, 'successful': ok})
+		await queue.put({
+			'event_type': 'done',
+			'final_result': final_result,
+			'successful': ok,
+			'workflow_json': captured_workflow_json,
+			'original_task': task,
+		})
 	except asyncio.CancelledError:
 		logger.info('Agent job %s cancelled by user', job_id)
 		await queue.put({'event_type': 'cancelled', 'message': 'Task stopped.'})
