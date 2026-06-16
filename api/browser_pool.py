@@ -9,6 +9,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import psutil
+
 from system.browser.profile import BrowserProfile
 from system.browser.session import BrowserSession
 
@@ -104,6 +106,56 @@ async def _evict_idle() -> None:
 		logger.info('Evicted idle browser session %s', key)
 
 
+async def _discard_stale_entry(key: str, entry: _PoolEntry) -> None:
+	"""Remove a dead session from the pool so the next acquire starts fresh Chromium."""
+	_pool.pop(key, None)
+	try:
+		await entry.session.stop()
+	except Exception:
+		logger.debug('stale session stop failed', exc_info=True)
+	_kill_chromium_holding_profile(entry.profile_dir)
+
+
+def _kill_chromium_holding_profile(profile_dir: Path) -> None:
+	"""Free a locked Chrome user-data-dir (stale local dev processes)."""
+	needle = str(profile_dir.resolve())
+	for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+		try:
+			name = (proc.info.get('name') or '').lower()
+			if not any(x in name for x in ('chromium', 'chrome', 'google chrome')):
+				continue
+			cmdline = ' '.join(proc.info.get('cmdline') or [])
+			if needle in cmdline or f'user-data-dir={needle}' in cmdline:
+				logger.info('Killing stale Chromium pid=%s for profile %s', proc.pid, profile_dir.name)
+				proc.kill()
+		except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+			continue
+
+
+async def _start_browser_session(profile_dir: Path) -> BrowserSession:
+	_kill_chromium_holding_profile(profile_dir)
+	profile = BrowserProfile(
+		headless=_headless(),
+		user_data_dir=str(profile_dir),
+		keep_alive=True,
+	)
+	session = BrowserSession(browser_profile=profile)
+	try:
+		await session.start()
+	except Exception as first_err:
+		logger.warning('Browser start failed for %s (%s) — retrying after cleanup', profile_dir.name, first_err)
+		_kill_chromium_holding_profile(profile_dir)
+		await asyncio.sleep(1.0)
+		profile = BrowserProfile(
+			headless=_headless(),
+			user_data_dir=str(profile_dir),
+			keep_alive=True,
+		)
+		session = BrowserSession(browser_profile=profile)
+		await session.start()
+	return session
+
+
 async def acquire_session(user_id: str, chat_id: str | None) -> tuple[BrowserSession, bool]:
 	"""Return (session, is_continuation). Caller must hold entry.lock until release."""
 	await _evict_idle()
@@ -113,9 +165,15 @@ async def acquire_session(user_id: str, chat_id: str | None) -> tuple[BrowserSes
 	async with _pool_lock:
 		entry = _pool.get(key)
 		if entry is not None:
-			entry.last_used = time.time()
-			await entry.lock.acquire()
-			return entry.session, True
+			if entry.session.is_cdp_connected:
+				entry.last_used = time.time()
+				await entry.lock.acquire()
+				return entry.session, True
+			logger.warning(
+				'Browser session for %s lost CDP connection — recreating Chromium',
+				user_id[:8],
+			)
+			await _discard_stale_entry(key, entry)
 
 		if persistent_profiles_enabled():
 			profile_dir = user_profile_dir(user_id)
@@ -123,13 +181,7 @@ async def acquire_session(user_id: str, chat_id: str | None) -> tuple[BrowserSes
 			profile_dir = _PROFILE_ROOT / key.replace(':', '_')
 			profile_dir.mkdir(parents=True, exist_ok=True)
 
-		profile = BrowserProfile(
-			headless=_headless(),
-			user_data_dir=str(profile_dir),
-			keep_alive=True,
-		)
-		session = BrowserSession(browser_profile=profile)
-		await session.start()
+		session = await _start_browser_session(profile_dir)
 		entry = _PoolEntry(session=session, profile_dir=profile_dir, user_id=user_id)
 		_pool[key] = entry
 		await entry.lock.acquire()

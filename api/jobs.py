@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+from api.job_input import UserInputGate
 
 _job_lock = asyncio.Lock()
 _jobs: dict[str, JobRecord] = {}
@@ -17,6 +19,7 @@ class JobRecord:
 	queue: asyncio.Queue[Any | None]
 	task: asyncio.Task | None = None
 	agent: Any | None = None
+	input_gate: UserInputGate = field(default_factory=UserInputGate)
 
 
 async def register_job(user_id: str, chat_id: str | None) -> str:

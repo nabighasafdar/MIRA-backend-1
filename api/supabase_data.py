@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
 
 from system.config import CONFIG
+
+logger = logging.getLogger(__name__)
 
 
 def _headers(service_key: str) -> dict[str, str]:
@@ -91,22 +95,113 @@ async def fetch_bookmark_workflow(user_id: str, bookmark_id: str) -> dict[str, A
 	return rows[0]
 
 
+async def persist_assistant_message(chat_id: str, content: str) -> None:
+	"""Save agent reply to Supabase so chat history survives missed SSE connections."""
+	text = (content or '').strip()
+	if not text or not CONFIG.SUPABASE_URL or not CONFIG.SUPABASE_SERVICE_ROLE_KEY:
+		return
+	base = CONFIG.SUPABASE_URL.rstrip('/')
+	headers = _headers(CONFIG.SUPABASE_SERVICE_ROLE_KEY)
+	async with httpx.AsyncClient(timeout=30.0) as client:
+		check = await client.get(
+			f'{base}/rest/v1/messages',
+			params={
+				'chat_id': f'eq.{chat_id}',
+				'select': 'role,content',
+				'order': 'created_at.desc',
+				'limit': '1',
+			},
+			headers=headers,
+		)
+		if check.status_code == 200:
+			rows = check.json()
+			if rows and rows[0].get('role') == 'assistant' and (rows[0].get('content') or '').strip() == text:
+				return
+		r = await client.post(
+			f'{base}/rest/v1/messages',
+			json={'chat_id': chat_id, 'role': 'assistant', 'content': text},
+			headers=headers,
+		)
+		if r.status_code not in (200, 201):
+			logger.warning('persist_assistant_message failed: %s', (r.text or '')[:200] or r.status_code)
+			return
+		await client.patch(
+			f'{base}/rest/v1/chats',
+			params={'id': f'eq.{chat_id}'},
+			json={'updated_at': datetime.now(timezone.utc).isoformat()},
+			headers=headers,
+		)
+
+
 def wallet_to_extend_message(items: list[dict[str, Any]]) -> str | None:
 	if not items:
 		return None
 	lines = [
-		'Use the following saved credentials ONLY on matching login/account pages the user intends to reach.',
+		'The user Info Wallet may contain saved personal details and login credentials.',
+		'Use saved values directly — do not call prompt_user for information already listed here.',
+		'Use credentials ONLY on matching login/account pages the user intends to reach.',
 	]
 	for i, row in enumerate(items, 1):
-		label = row.get('label') or f'Credential {i}'
+		label = row.get('label') or f'Item {i}'
 		url = row.get('url')
 		user = row.get('username') or ''
 		pw = row.get('password') or ''
-		if url:
-			lines.append(f'- [{label}] site_hint={url} username={user} password={pw}')
-		else:
-			lines.append(f'- [{label}] username={user} password={pw}')
+		if pw:
+			if url:
+				lines.append(f'- [{label}] site_hint={url} username={user} password={pw}')
+			else:
+				lines.append(f'- [{label}] username={user} password={pw}')
+		elif user:
+			if url:
+				lines.append(f'- [{label}] saved_value={user} site_hint={url}')
+			else:
+				lines.append(f'- [{label}] saved_value={user}')
 	return '\n'.join(lines)
+
+
+async def upsert_wallet_item(
+	user_id: str,
+	label: str,
+	value: str,
+	url: str | None = None,
+	*,
+	is_credential: bool = False,
+	password: str | None = None,
+) -> bool:
+	"""Create or update a wallet row by label (case-insensitive)."""
+	if not label or not value:
+		return False
+	if not CONFIG.SUPABASE_URL or not CONFIG.SUPABASE_SERVICE_ROLE_KEY:
+		return False
+	base = CONFIG.SUPABASE_URL.rstrip('/')
+	headers = _headers(CONFIG.SUPABASE_SERVICE_ROLE_KEY)
+	existing = next(
+		(
+			row
+			for row in await fetch_wallet_items(user_id)
+			if (row.get('label') or '').strip().lower() == label.lower()
+		),
+		None,
+	)
+	payload: dict[str, Any] = {
+		'label': label,
+		'username': value,
+		'password': password if is_credential else (password or ''),
+		'url': url,
+		'updated_at': datetime.now(timezone.utc).isoformat(),
+	}
+	async with httpx.AsyncClient(timeout=30.0) as client:
+		if existing and existing.get('id'):
+			r = await client.patch(
+				f'{base}/rest/v1/info_wallet_items',
+				params={'id': f'eq.{existing["id"]}', 'user_id': f'eq.{user_id}'},
+				json=payload,
+				headers=headers,
+			)
+			return r.status_code in (200, 204)
+		payload['user_id'] = user_id
+		r = await client.post(f'{base}/rest/v1/info_wallet_items', json=payload, headers=headers)
+		return r.status_code in (200, 201)
 
 
 def bookmark_workflow_to_template(agent_workflow: Any) -> dict | None:

@@ -115,6 +115,20 @@ async def job_meta(job_id: str):
 	return {'user_id': rec.user_id, 'chat_id': rec.chat_id}
 
 
+class JobResumeRequest(BaseModel):
+	answer: str = Field(..., min_length=1)
+
+
+@app.post('/agent/jobs/{job_id}/resume', dependencies=[Depends(_auth)])
+async def job_resume(job_id: str, body: JobResumeRequest):
+	rec = jobs.get_job(job_id)
+	if not rec:
+		raise HTTPException(status_code=404, detail='Unknown job')
+	if not rec.input_gate.provide(body.answer.strip()):
+		raise HTTPException(status_code=409, detail='Job is not waiting for user input')
+	return {'status': 'ok'}
+
+
 @app.post('/agent/jobs/{job_id}/cancel', dependencies=[Depends(_auth)])
 async def job_cancel(job_id: str):
 	ok, detail = jobs.cancel_job(job_id)

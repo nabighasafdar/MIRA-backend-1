@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 from system.agent.service import Agent
@@ -19,18 +20,31 @@ from api.browser_profile import (
 	persistent_profiles_enabled,
 	profile_has_login_data,
 )
-from api.mira_persona import build_extend_system_message
+from api.mira_persona import build_extend_system_message, build_wallet_gap_hint
+from api.mira_tools import build_mira_tools
+from api.wallet_weather import resolve_weather_location_or_ask
 from api.supabase_data import (
 	bookmark_workflow_to_template,
 	fetch_bookmark_workflow,
 	fetch_profile_llm_key,
 	fetch_wallet_items,
 	is_browser_profile_ready,
+	persist_assistant_message,
 	set_browser_profile_ready,
 	wallet_to_extend_message,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _billing_cost_multiplier() -> float:
+	raw = (os.getenv('MIRA_BILLING_COST_MULTIPLIER') or os.getenv('BILLING_COST_MULTIPLIER') or '1').strip()
+	try:
+		n = float(raw)
+		return n if n > 0 else 1.0
+	except ValueError:
+		return 1.0
+
 
 def _b64_png_to_data_url(screenshot_b64: str | None) -> str | None:
 	if not screenshot_b64:
@@ -77,11 +91,18 @@ async def _run_agent_core(
 			return
 		loop.create_task(queue.put(data))
 
+	async def emit_async(data: dict) -> None:
+		emit(data)
+		# Brief yield so SSE clients receive needs_user_input before we block.
+		await asyncio.sleep(0.05)
+
 	llm_key = await fetch_profile_llm_key(user_id)
 	llm = _build_llm(llm_key)
 
-	session, continuing = await acquire_session(user_id, chat_id)
-	task = wrap_task_for_continuation(task, continuing=continuing)
+	session, reusing_session = await acquire_session(user_id, chat_id)
+	# Saved workflow/bookmark macros carry their own steps — don't add chat continuation text.
+	use_continuation_prompt = reusing_session and workflow_template is None
+	task = wrap_task_for_continuation(task, continuing=use_continuation_prompt)
 
 	try:
 		async def on_step(browser_state_summary, model_output, step_number: int):  # type: ignore[no-untyped-def]
@@ -94,6 +115,8 @@ async def _run_agent_core(
 				'phase': phase,
 			})
 
+		agent_tools = build_mira_tools(user_id, rec.input_gate, emit_async, job_id)
+
 		agent = Agent(
 			task=task,
 			llm=llm,
@@ -102,7 +125,9 @@ async def _run_agent_core(
 			register_new_step_callback=on_step,
 			workflow_template=workflow_template,
 			extend_system_message=extend_system_message,
-			directly_open_url=not continuing,
+			directly_open_url=not reusing_session,
+			tools=agent_tools,
+			calculate_cost=True,
 		)
 		if rec:
 			rec.agent = agent
@@ -119,6 +144,11 @@ async def _run_agent_core(
 				final_result = history.final_result() or ''
 			except Exception:
 				final_result = ''
+			if not final_result.strip() and not ok:
+				final_result = (
+					"I couldn't complete that in the browser. "
+					"If the Chromium window was closed, restart the agent backend and try again."
+				)
 		billing_payload: dict[str, Any] | None = None
 		if phase == 'main':
 			try:
@@ -129,7 +159,7 @@ async def _run_agent_core(
 					'completion_tokens': usage.total_completion_tokens,
 					'cached_tokens': usage.total_prompt_cached_tokens,
 					'total_tokens': usage.total_tokens,
-					'cost_usd': round(usage.total_cost, 6),
+					'cost_usd': round(usage.total_cost * _billing_cost_multiplier(), 6),
 				}
 			except Exception as e:
 				logger.debug('Failed to compute billing summary for job %s: %s', job_id, e)
@@ -144,6 +174,11 @@ async def _run_agent_core(
 		if billing_payload:
 			done_event['billing'] = billing_payload
 		await queue.put(done_event)
+		if phase == 'main' and chat_id and final_result.strip():
+			try:
+				await persist_assistant_message(chat_id, final_result)
+			except Exception as e:
+				logger.debug('Failed to persist assistant message for job %s: %s', job_id, e)
 	except asyncio.CancelledError:
 		logger.info('Agent job %s cancelled by user', job_id)
 		await queue.put({'event_type': 'cancelled', 'message': 'Task stopped.'})
@@ -183,7 +218,7 @@ async def _run_with_profile_setup_if_needed(
 				),
 			})
 			items = await fetch_wallet_items(user_id)
-			setup_extend = build_extend_system_message(wallet_to_extend_message(items))
+			setup_extend = build_extend_system_message(wallet_to_extend_message(items), task=PROFILE_SETUP_TASK)
 			await _run_agent_core(
 				job_id,
 				user_id,
@@ -209,6 +244,38 @@ async def _run_with_profile_setup_if_needed(
 				'event_type': 'profile_setup_done',
 				'message': 'Browser profile saved. Starting your task…',
 			})
+
+		async def emit_async_pre(data: dict) -> None:
+			await queue.put(data)
+			await asyncio.sleep(0.05)
+
+		items = await fetch_wallet_items(user_id)
+		weather = await resolve_weather_location_or_ask(
+			job_id,
+			user_id,
+			task,
+			items,
+			rec.input_gate,
+			emit_async_pre,
+		)
+		if weather.aborted:
+			await queue.put(None)
+			return
+
+		task = weather.task
+		wallet_parts = [
+			p
+			for p in (
+				wallet_to_extend_message(weather.items),
+				weather.location_hint,
+				build_wallet_gap_hint(task, weather.items),
+			)
+			if p
+		]
+		extend_system_message = build_extend_system_message(
+			'\n\n'.join(wallet_parts) if wallet_parts else None,
+			task=task,
+		)
 
 		await _run_agent_core(
 			job_id,
@@ -243,9 +310,10 @@ async def start_run_task(
 	extend = None
 	if load_wallet:
 		items = await fetch_wallet_items(user_id)
-		extend = build_extend_system_message(wallet_to_extend_message(items))
+		wallet_parts = [p for p in (wallet_to_extend_message(items), build_wallet_gap_hint(task, items)) if p]
+		extend = build_extend_system_message('\n\n'.join(wallet_parts) if wallet_parts else None, task=task)
 	else:
-		extend = build_extend_system_message(None)
+		extend = build_extend_system_message(None, task=task)
 
 	if chat_id is None:
 		rec = jobs.get_job(job_id)

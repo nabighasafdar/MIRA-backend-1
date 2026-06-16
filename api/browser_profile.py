@@ -59,7 +59,9 @@ This is a ONE-TIME browser profile setup for MIRA (not the user's main task).
 1. Open https://www.youtube.com
 2. If you see "Sign in", click it and navigate to the Google sign-in page.
 3. If wallet credentials apply on a login form, use them to sign in.
-4. If already signed in on YouTube, stop immediately.
-5. Stop once YouTube is loaded or Google sign-in is reachable — do not search or browse further.
-6. Call done with a short message that the browser profile is ready and logins will be saved.
+4. If already signed in on YouTube, also open https://mail.google.com in a new tab to confirm Gmail access.
+5. If Gmail loads the inbox, stop — the profile is ready.
+6. If CAPTCHA or 2FA appears, call prompt_user asking the user to complete it in the Chromium window, then click "I've signed in" in Dashboard.
+7. Stop once YouTube or Gmail inbox is loaded — do not search or browse further.
+8. Call done with a short message that the browser profile is ready and logins will be saved.
 </browser_profile_setup>"""
